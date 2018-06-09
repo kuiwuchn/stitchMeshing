@@ -1,1 +1,1 @@
-# stitchable-meshing
+# Stitch meshing
