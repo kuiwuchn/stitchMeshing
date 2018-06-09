@@ -1,1 +1,1 @@
-# Stitch meshing
+# Stitch Meshing
