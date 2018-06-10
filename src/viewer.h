@@ -121,7 +121,8 @@ protected:
 	CheckBox *mShow_F_done;
 	CheckBox *mShow_E_done;
 
-	CheckBox *mShow_stich_meshing;
+	CheckBox *mShow_stich_meshing_face;
+	CheckBox *mShow_stich_meshing_edge;
 
 	//////////////////////////////////////////////////////////////////////////
 
@@ -146,6 +147,7 @@ protected:
 	GLShader mExtractionResultShader_F_done;
 
 	GLShader mStitchMeshing_F;
+	GLShader mStitchMeshing_E;
 
     Vector4f mBaseColor, mSpecularColor;
     Vector4f mBaseColorBoundary, mSpecularColorBoundary;

@@ -232,6 +232,7 @@ public:
 
 	MatrixXf mV_StMesh_rend;
 	MatrixXu mF_StMesh_rend;
+	MatrixXf mE_StMesh_rend;
 
 	//////////////////////////////////////////////////////////////////////////
 	// stitch meshing 

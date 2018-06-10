@@ -75,6 +75,10 @@ Viewer::Viewer(std::string &filename, bool fullscreen)
 		(const char *)shader_mesh_frag,
 		(const char *)shader_mesh_geo);
 
+	mStitchMeshing_E.init("Shader_E_local",
+		(const char *)shader_singularity_tet_vert,
+		(const char *)shader_singularity_tet_frag);
+
 	mStitchMeshing_F.init("Shader_F_local",
 		(const char *)shader_mesh_vert,
 		(const char *)shader_mesh_frag,
@@ -329,13 +333,13 @@ Viewer::Viewer(std::string &filename, bool fullscreen)
 		mStitchMeshing_F.bind();
 		mStitchMeshing_F.uploadAttrib("position", mRes.mV_StMesh_rend);
 		mStitchMeshing_F.uploadIndices(mRes.mF_StMesh_rend);
-		mShow_stich_meshing->setChecked(true);
-
-		//auto const &R4 = mRes.E_final_rend;
-		//mExtractionResultShader_E_done.bind();
-		//mExtractionResultShader_E_done.uploadAttrib("position", MatrixXf(R4.block(0, 0, 3, R4.cols())));
-		//mExtractionResultShader_E_done.uploadAttrib("color", MatrixXf(R4.block(3, 0, 3, R4.cols())));
-		//mShow_E_done->setChecked(true);
+		mShow_stich_meshing_face->setChecked(true);
+		
+		auto const &R4 = mRes.mE_StMesh_rend;
+		mStitchMeshing_E.bind();
+		mStitchMeshing_E.uploadAttrib("position", MatrixXf(R4.block(0, 0, 3, R4.cols())));
+		mStitchMeshing_E.uploadAttrib("color", MatrixXf(R4.block(3, 0, 3, R4.cols())));
+		mShow_stich_meshing_edge->setChecked(true);;
 	});
 
 	//////////////////////////////////////////////////////////////////////////
@@ -422,9 +426,13 @@ Viewer::Viewer(std::string &filename, bool fullscreen)
 	mShow_E_done->setId("showdoneE");
 	mShow_E_done->setChecked(false);
 
-	mShow_stich_meshing = new CheckBox(ConstraintsPopup, "StMesh");
-	mShow_stich_meshing->setId("showStMesh");
-	mShow_stich_meshing->setChecked(false);
+	mShow_stich_meshing_face = new CheckBox(ConstraintsPopup, "StMesh");
+	mShow_stich_meshing_face->setId("showStMeshFace");
+	mShow_stich_meshing_face->setChecked(false);
+
+	mShow_stich_meshing_edge = new CheckBox(ConstraintsPopup, "StMesh");
+	mShow_stich_meshing_edge->setId("showStMeshEdge");
+	mShow_stich_meshing_edge->setChecked(false);
 
 
 	mOutputBtn = new Button(ConstraintsPopup, "Output", ENTYPO_ICON_FLASH);
@@ -776,7 +784,7 @@ void Viewer::drawContents() {
 		shader.drawArray(GL_LINES, 0, mRes.E_final_rend.cols());
 	}
 
-	if (mShow_stich_meshing->checked()) {
+	if (mShow_stich_meshing_face->checked()) {
 		mStitchMeshing_F.bind();
 		mStitchMeshing_F.setUniform("light_position", mLightPosition);
 		mStitchMeshing_F.setUniform("model", model);
@@ -787,6 +795,13 @@ void Viewer::drawContents() {
 		glPolygonOffset(1.0, 1.0);
 		mStitchMeshing_F.drawIndexed(GL_TRIANGLES, 0, mRes.mF_StMesh_rend.cols());
 		glDisable(GL_POLYGON_OFFSET_FILL);
+	}
+
+	if (mShow_stich_meshing_edge->checked()) {
+		auto &shader = mStitchMeshing_E;
+		shader.bind();
+		shader.setUniform("mvp", mvp);
+		shader.drawArray(GL_LINES, 0, mRes.mE_StMesh_rend.cols());
 	}
 }
 

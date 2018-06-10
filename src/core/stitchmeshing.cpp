@@ -216,15 +216,10 @@ void MultiResolutionHierarchy::convert2Rend()
 		else if (f->NumHalfEdge() == 4) quadNum++;
 		else if (f->NumHalfEdge() == 5) penNum++;
 	}
-	
 
 	int triTotalNum = triNum + 2 * quadNum + 3 * penNum;
 
-	std::cout << triTotalNum << std::endl;
-
 	mF_StMesh_rend.resize(3, triTotalNum);
-
-	std::cout << mCleanPoly->numFaces() << std::endl;
 
 	int c = 0;
 	for (int fi = 0; fi < mCleanPoly->numFaces(); fi++)
@@ -272,7 +267,27 @@ void MultiResolutionHierarchy::convert2Rend()
 			mF_StMesh_rend(2, c++) = viList[4];
 		}
 	}
-	std::cout << c << std::endl;
+
+	mE_StMesh_rend.resize(6, mCleanPoly->numHalfEdges() * 2);
+
+	for (int ei = 0; ei < mCleanPoly->numHalfEdges(); ei++)
+	{
+		HE_HalfEdge* he = mCleanPoly->halfedge(ei);
+		mE_StMesh_rend(0, ei * 2 + 0) = he->src()->position().x;
+		mE_StMesh_rend(1, ei * 2 + 0) = he->src()->position().y;
+		mE_StMesh_rend(2, ei * 2 + 0) = he->src()->position().z;
+		mE_StMesh_rend(3, ei * 2 + 0) = 0;
+		mE_StMesh_rend(4, ei * 2 + 0) = 0;
+		mE_StMesh_rend(5, ei * 2 + 0) = 0;
+
+		mE_StMesh_rend(0, ei * 2 + 1) = he->dst()->position().x;
+		mE_StMesh_rend(1, ei * 2 + 1) = he->dst()->position().y;
+		mE_StMesh_rend(2, ei * 2 + 1) = he->dst()->position().z;
+		mE_StMesh_rend(3, ei * 2 + 1) = 0;
+		mE_StMesh_rend(4, ei * 2 + 1) = 0;
+		mE_StMesh_rend(5, ei * 2 + 1) = 0;
+	}
+
 #else
 	mV_StMesh_rend = mV_tag;
 
