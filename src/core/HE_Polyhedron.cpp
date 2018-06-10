@@ -98,17 +98,18 @@ HE_Polyhedron::HE_Polyhedron(const MatrixXf &pPos, std::vector<std::vector<uint3
 {
 	std::vector<std::vector<int> > faces;
 
-	std::cout << "v " << pPos.size() << std::endl;
-	_vertices.resize((uint32_t)pPos.size());
-	for (unsigned v = 0; v < _vertices.size(); v++)
+	//std::cout << "v " << pPos.cols() << std::endl;
+	_vertices.resize((uint32_t)pPos.cols());
+	for (unsigned v = 0; v < pPos.cols(); v++)
 		_vertices[v] = new HE_Vertex(cyPoint3f(pPos(v,0), pPos(v, 1), pPos(v, 2)), v);
 
-	std::cout << "f " << pIndices.size() << std::endl;
+	//std::cout << "f " << pIndices.size() << std::endl;
 	faces.resize((uint32_t)pIndices.size()); 
 
 	for (int i = 0; i < pIndices.size(); i++) {
+		if (pIndices[i].size() == 5) std::cout << "ERROR: there should not be pentagon!\n";
 		for (int j = 0; j < pIndices[i].size(); j++)
-			faces[i].push_back(pIndices[i][j] + 1);
+			faces[i].push_back(pIndices[i][j]);
 	}
 
 	loadFaces(faces);

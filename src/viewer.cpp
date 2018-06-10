@@ -75,6 +75,11 @@ Viewer::Viewer(std::string &filename, bool fullscreen)
 		(const char *)shader_mesh_frag,
 		(const char *)shader_mesh_geo);
 
+	mStitchMeshing_F.init("Shader_F_local",
+		(const char *)shader_mesh_vert,
+		(const char *)shader_mesh_frag,
+		(const char *)shader_mesh_geo);
+
     /* Default view setup */
     mCamera.arcball = Arcball();
     mCamera.arcball.setSize(mSize);
@@ -299,6 +304,10 @@ Viewer::Viewer(std::string &filename, bool fullscreen)
 
 			//mRes.meshExtraction2D();
 			mRes.convert2Poly();
+
+			mRes.stitchMeshing();
+
+			mRes.convert2Rend();
 		}
 		else {
 			std::cout << "Error: doesn't support 3D!\n";
@@ -311,10 +320,14 @@ Viewer::Viewer(std::string &filename, bool fullscreen)
 
 		////////////////////////////////////////////////////////////////////////////
 		//// write to render buffer
-		//mExtractionResultShader_F_done.bind();
-		//mExtractionResultShader_F_done.uploadAttrib("position", mRes.mV_final_rend);
-		//mExtractionResultShader_F_done.uploadIndices(mRes.F_final_rend);
-		//mShow_F_done->setChecked(true);
+
+		mShow_F_done->setChecked(false);
+		mShow_E_done->setChecked(false);
+
+		mStitchMeshing_F.bind();
+		mStitchMeshing_F.uploadAttrib("position", mRes.mV_StMesh_rend);
+		mStitchMeshing_F.uploadIndices(mRes.mF_StMesh_rend);
+		mShow_stich_meshing->setChecked(true);
 
 		//auto const &R4 = mRes.E_final_rend;
 		//mExtractionResultShader_E_done.bind();
@@ -406,6 +419,11 @@ Viewer::Viewer(std::string &filename, bool fullscreen)
 	mShow_E_done = new CheckBox(ConstraintsPopup, "Edge");
 	mShow_E_done->setId("showdoneE");
 	mShow_E_done->setChecked(false);
+
+	mShow_stich_meshing = new CheckBox(ConstraintsPopup, "StMesh");
+	mShow_stich_meshing->setId("showStMesh");
+	mShow_stich_meshing->setChecked(false);
+
 
 	mOutputBtn = new Button(ConstraintsPopup, "Output", ENTYPO_ICON_FLASH);
 	mOutputBtn->setBackgroundColor(Color(0, 255, 0, 25));
@@ -756,6 +774,18 @@ void Viewer::drawContents() {
 		shader.drawArray(GL_LINES, 0, mRes.E_final_rend.cols());
 	}
 
+	if (mShow_stich_meshing->checked()) {
+		mStitchMeshing_F.bind();
+		mStitchMeshing_F.setUniform("light_position", mLightPosition);
+		mStitchMeshing_F.setUniform("model", model);
+		mStitchMeshing_F.setUniform("view", view);
+		mStitchMeshing_F.setUniform("proj", proj);
+		mStitchMeshing_F.setUniform("base_color", mBaseColorBoundary);
+		glEnable(GL_POLYGON_OFFSET_FILL);
+		glPolygonOffset(1.0, 1.0);
+		mStitchMeshing_F.drawIndexed(GL_TRIANGLES, 0, mRes.F_final_rend.cols());
+		glDisable(GL_POLYGON_OFFSET_FILL);
+	}
 }
 
 bool Viewer::keyboardEvent(int key, int scancode, int action, int modifiers) {

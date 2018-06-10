@@ -974,7 +974,7 @@ bool MultiResolutionHierarchy::meshExtraction2D() {
 		}
 	}
 
-	//split_pentagon();
+	split_pentagon();
 	F_tag = mFs2D;
 	FEs_tag = FEs;
 

@@ -14,6 +14,7 @@
 #include <set>
 
 #include "core/HE_Polyhedron.h"
+#include "core/dual.h"
 
 using nanogui::Serializer;
 using namespace std;
@@ -151,6 +152,9 @@ public:
 
 // stitch meshing
 	void convert2Poly();
+	void stitchMeshing();
+	void convert2Rend();
+	void removeQuadDecInc();
 
 public:
 	//for both 2D & 3D 
@@ -225,8 +229,18 @@ public:
 	MatrixXu F_tag_rend;
 	MatrixXu F_final_rend;
 
+	MatrixXf mV_StMesh_rend;
+	MatrixXu mF_StMesh_rend;
+
 	//////////////////////////////////////////////////////////////////////////
 	// stitch meshing 
 
 	HE_Polyhedron* mPoly;
+	DualGraph* mDual;
+
+	HE_Polyhedron* mSubPoly;
+	DualGraph* mSubDual;
+
+	HE_Polyhedron* mCleanPoly;
+	DualGraph* mCleanDual;
 };
