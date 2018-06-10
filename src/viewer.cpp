@@ -285,6 +285,45 @@ Viewer::Viewer(std::string &filename, bool fullscreen)
 		mShow_E_done->setChecked(true);
 	});
 
+//Stitch meshing
+	mStitchMeshing = new Button(window, "Stitch Meshing", ENTYPO_ICON_FLASH);
+	mStitchMeshing->setBackgroundColor(Color(255, 0, 255, 25));
+	mStitchMeshing->setCallback([&]() {
+		if (!mRes.tetMesh()) {
+
+			//mRes.re_color = true;
+			//mRes.doublets = true;
+			//mRes.splitting = true;
+			//mRes.triangles = true; //false;//
+			//mRes.decomposes = true;
+
+			//mRes.meshExtraction2D();
+			mRes.convert2Poly();
+		}
+		else {
+			std::cout << "Error: doesn't support 3D!\n";
+		}
+		mLayers[PositionSingularities]->setChecked(false);
+		mLayers[Layers::PositionField]->setChecked(false);
+		mLayers[Layers::Boundary]->setChecked(false);
+		mLayers[OrientationSingularities]->setChecked(false);
+		mLayers[Layers::OrientationField]->setChecked(false);
+
+		////////////////////////////////////////////////////////////////////////////
+		//// write to render buffer
+		//mExtractionResultShader_F_done.bind();
+		//mExtractionResultShader_F_done.uploadAttrib("position", mRes.mV_final_rend);
+		//mExtractionResultShader_F_done.uploadIndices(mRes.F_final_rend);
+		//mShow_F_done->setChecked(true);
+
+		//auto const &R4 = mRes.E_final_rend;
+		//mExtractionResultShader_E_done.bind();
+		//mExtractionResultShader_E_done.uploadAttrib("position", MatrixXf(R4.block(0, 0, 3, R4.cols())));
+		//mExtractionResultShader_E_done.uploadAttrib("color", MatrixXf(R4.block(3, 0, 3, R4.cols())));
+		//mShow_E_done->setChecked(true);
+	});
+
+	//////////////////////////////////////////////////////////////////////////
  	//Config Layers
 	PopupButton *openBtn3 = new PopupButton(window, "Config Layers");
 	auto popup3 = openBtn3->popup();

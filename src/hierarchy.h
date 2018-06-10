@@ -13,6 +13,8 @@
 #include "global_types.h"
 #include <set>
 
+#include "core/HE_Polyhedron.h"
+
 using nanogui::Serializer;
 using namespace std;
 class BVH;
@@ -146,6 +148,10 @@ public:
     ordered_lock &mutex() const { return mMutex; }
 
     int levels() const { return mL.size(); }
+
+// stitch meshing
+	void convert2Poly();
+
 public:
 	//for both 2D & 3D 
 	int laplacian_iteration = 0;
@@ -218,4 +224,9 @@ public:
 	MatrixXf E_final_rend;
 	MatrixXu F_tag_rend;
 	MatrixXu F_final_rend;
+
+	//////////////////////////////////////////////////////////////////////////
+	// stitch meshing 
+
+	HE_Polyhedron* mPoly;
 };
