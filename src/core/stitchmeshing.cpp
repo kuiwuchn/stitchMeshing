@@ -197,6 +197,83 @@ void MultiResolutionHierarchy::stitchMeshing()
 void MultiResolutionHierarchy::convert2Rend()
 {
 	std::cout << "Convert 2 render buffer...";
+
+#if 1
+	mV_StMesh_rend.resize(3, mCleanPoly->numVertices());
+	for (int vi = 0; vi < mCleanPoly->numVertices(); vi++)
+	{
+		mV_StMesh_rend(0, vi) = mCleanPoly->vertex(vi)->position().x;
+		mV_StMesh_rend(1, vi) = mCleanPoly->vertex(vi)->position().y;
+		mV_StMesh_rend(2, vi) = mCleanPoly->vertex(vi)->position().z;
+	}
+
+	int triNum = 0, quadNum = 0, penNum = 0;
+	for (int fi = 0; fi < mCleanPoly->numFaces(); fi++) {
+		HE_Face* f = mCleanPoly->face(fi);
+		if (f->hole()) continue;
+
+		if (f->NumHalfEdge() == 3) triNum++;
+		else if (f->NumHalfEdge() == 4) quadNum++;
+		else if (f->NumHalfEdge() == 5) penNum++;
+	}
+	
+
+	int triTotalNum = triNum + 2 * quadNum + 3 * penNum;
+
+	std::cout << triTotalNum << std::endl;
+
+	mF_StMesh_rend.resize(3, triTotalNum);
+
+	std::cout << mCleanPoly->numFaces() << std::endl;
+
+	int c = 0;
+	for (int fi = 0; fi < mCleanPoly->numFaces(); fi++)
+	{
+		HE_Face* f = mCleanPoly->face(fi);
+		if (f->hole()) continue;
+
+		std::vector<int> viList; viList.clear();
+		HE_Face::const_edge_circulator e = f->begin();
+		HE_Face::const_edge_circulator sentinel = e;
+		do
+		{
+			viList.push_back((*e)->dst()->index());
+			++e;
+		} while (e != sentinel);
+
+		if (f->NumHalfEdge() == 3)
+		{
+			mF_StMesh_rend(0, c) = viList[0];
+			mF_StMesh_rend(1, c) = viList[1];
+			mF_StMesh_rend(2, c++) = viList[2];
+		}
+		else if (f->NumHalfEdge() == 4)
+		{
+			mF_StMesh_rend(0, c) = viList[0];
+			mF_StMesh_rend(1, c) = viList[1];
+			mF_StMesh_rend(2, c++) = viList[3];
+
+			mF_StMesh_rend(0, c) = viList[1];
+			mF_StMesh_rend(1, c) = viList[2];
+			mF_StMesh_rend(2, c++) = viList[3];
+		}
+		else if (f->NumHalfEdge() == 5)
+		{
+			mF_StMesh_rend(0, c) = viList[0];
+			mF_StMesh_rend(1, c) = viList[1];
+			mF_StMesh_rend(2, c++) = viList[4];
+
+			mF_StMesh_rend(0, c) = viList[1];
+			mF_StMesh_rend(1, c) = viList[2];
+			mF_StMesh_rend(2, c++) = viList[4];
+
+			mF_StMesh_rend(0, c) = viList[2];
+			mF_StMesh_rend(1, c) = viList[3];
+			mF_StMesh_rend(2, c++) = viList[4];
+		}
+	}
+	std::cout << c << std::endl;
+#else
 	mV_StMesh_rend = mV_tag;
 
 	int triNum = 0, quadNum = 0, penNum = 0;
@@ -244,6 +321,7 @@ void MultiResolutionHierarchy::convert2Rend()
 			mF_StMesh_rend(2, c++) = F_tag[i][4];
 		}
 	}
+#endif
 	std::cout << "Done\n";
 }
 
@@ -486,4 +564,34 @@ void MultiResolutionHierarchy::removeQuadDecInc()
 
 	/* find loops */
 	mCleanDual->findLoops();
+}
+
+void MultiResolutionHierarchy::exportResult()
+{
+	std::string objFilename = "result_mesh.obj";
+	std::ofstream exportFile;
+	exportFile.open(objFilename.c_str());
+
+	for (int vi = 0; vi < mCleanPoly->numVertices(); vi++)
+	{
+		exportFile << "v " << mCleanPoly->vertex(vi)->position().x << " " << mCleanPoly->vertex(vi)->position().y << " " << mCleanPoly->vertex(vi)->position().z << std::endl;
+	}
+
+	for (int fi = 0; fi < mCleanPoly->numFaces(); fi++)
+	{
+		HE_Face* f = mCleanPoly->face(fi);
+
+		HE_Face::const_edge_circulator e = f->begin();
+		HE_Face::const_edge_circulator sentinel = e;
+
+		exportFile << "f ";
+		do
+		{
+			exportFile << (*e)->dst()->index() + 1 << " ";
+			++e;
+		} while (e != sentinel);
+
+		exportFile << std::endl;
+	}
+	exportFile.close();
 }

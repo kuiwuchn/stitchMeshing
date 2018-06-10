@@ -101,7 +101,7 @@ HE_Polyhedron::HE_Polyhedron(const MatrixXf &pPos, std::vector<std::vector<uint3
 	//std::cout << "v " << pPos.cols() << std::endl;
 	_vertices.resize((uint32_t)pPos.cols());
 	for (unsigned v = 0; v < pPos.cols(); v++)
-		_vertices[v] = new HE_Vertex(cyPoint3f(pPos(v,0), pPos(v, 1), pPos(v, 2)), v);
+		_vertices[v] = new HE_Vertex(cyPoint3f(pPos(0, v), pPos(1, v), pPos(2, v)), v);
 
 	//std::cout << "f " << pIndices.size() << std::endl;
 	faces.resize((uint32_t)pIndices.size()); 

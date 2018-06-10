@@ -307,6 +307,8 @@ Viewer::Viewer(std::string &filename, bool fullscreen)
 
 			mRes.stitchMeshing();
 
+			mRes.exportResult();
+
 			mRes.convert2Rend();
 		}
 		else {
@@ -319,7 +321,7 @@ Viewer::Viewer(std::string &filename, bool fullscreen)
 		mLayers[Layers::OrientationField]->setChecked(false);
 
 		////////////////////////////////////////////////////////////////////////////
-		//// write to render buffer
+		// write to render buffer
 
 		mShow_F_done->setChecked(false);
 		mShow_E_done->setChecked(false);
@@ -783,7 +785,7 @@ void Viewer::drawContents() {
 		mStitchMeshing_F.setUniform("base_color", mBaseColorBoundary);
 		glEnable(GL_POLYGON_OFFSET_FILL);
 		glPolygonOffset(1.0, 1.0);
-		mStitchMeshing_F.drawIndexed(GL_TRIANGLES, 0, mRes.F_final_rend.cols());
+		mStitchMeshing_F.drawIndexed(GL_TRIANGLES, 0, mRes.mF_StMesh_rend.cols());
 		glDisable(GL_POLYGON_OFFSET_FILL);
 	}
 }

@@ -155,6 +155,7 @@ public:
 	void stitchMeshing();
 	void convert2Rend();
 	void removeQuadDecInc();
+	void exportResult();
 
 public:
 	//for both 2D & 3D 
