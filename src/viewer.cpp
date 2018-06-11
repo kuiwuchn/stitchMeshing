@@ -4,8 +4,6 @@
 #include "bvh.h"
 #include <nanogui/serializer/opengl.h>
 
-//#include "lodepng.h"
-
 Viewer::Viewer(std::string &filename, bool fullscreen)
     : Screen(Vector2i(1280, 960), "Stitch Meshing", true),
       mOptimizer(nullptr) {
@@ -178,18 +176,101 @@ Viewer::Viewer(std::string &filename, bool fullscreen)
 		g_fs,
 		g_geo);
 
-	//mStitchMeshing_F.bind();
+	mAlignedMesh_E.init("Shader_E_al",
+		(const char *)shader_singularity_tet_vert,
+		(const char *)shader_singularity_tet_frag);
 
-	mArrowTexture.load("arrow.png");
+	mAlignedMesh_F.init("Shader_F_al",
+		g_vs,
+		g_fs,
+		g_geo);
 
-//	LoadTexture("arrow.png");
+	static std::string g_lb_vs =
+		"#version 330\n"
+		"in vec3 position;\n"
+		"in vec3 normal;\n"
+		"in vec2 tex_coord;\n"
+		"out vec3 normal_geo;\n"
+		"out vData{\n"
+		"	vec3 normal;\n"
+		"	vec2 tex_coord;\n"
+		"} geo;\n"
+		"void main() {\n"
+		"	gl_Position = vec4(position, 1.0);\n"
+		"	geo.normal = normal;\n"
+		"	geo.tex_coord = tex_coord;\n"
+		"}\n"
+		;
 
-	//GLint para = mStitchMeshing_F.uniform("arrowTexture");
-	//glUniform1i(para, 0);
-	//glActiveTexture(GL_TEXTURE0);
-	
+	static std::string g_lb_geo =
+		"#version 330\n"
+		"layout(triangles) in;\n"
+		"layout(triangle_strip, max_vertices = 3) out;\n"
+		"uniform vec3 light_position;\n"
+		"uniform mat4 proj, model, view;\n"
+		"uniform vec4 split;\n"
+		"in vData{\n"
+		"	vec3 normal;\n"
+		"	vec2 tex_coord;\n"
+		"} vertices[];\n"
+		"out fData{\n"
+		"	vec3 to_eye;\n"
+		"	vec3 to_light;\n"
+		"	vec3 normal;\n"
+		"	vec2 tex_coord;\n"
+		"} frag;\n"
+		"void main() {\n"
+		"	if (dot(split, gl_in[0].gl_Position) < 0 ||\n"
+		"		dot(split, gl_in[1].gl_Position) < 0 ||\n"
+		"		dot(split, gl_in[2].gl_Position) < 0)\n"
+		"		return;\n"
+		"	frag.normal = normalize(cross(\n"
+		"		(view * (model * (gl_in[1].gl_Position - gl_in[0].gl_Position))).xyz,\n"
+		"		(view * (model * (gl_in[2].gl_Position - gl_in[0].gl_Position))).xyz));\n"
+		"	for (int i = 0; i < 3; ++i) {\n"
+		"		vec4 pos_camera = view * (model * gl_in[i].gl_Position);\n"
+		"		gl_Position = proj * pos_camera;\n"
+		"		frag.to_light = (view * vec4(light_position, 1.0)).xyz - pos_camera.xyz;\n"
+		"		frag.to_eye = -pos_camera.xyz;\n"
+		"		frag.tex_coord = vertices[i].tex_coord;\n"
+		"		EmitVertex();\n"
+		"	}\n"
+		"	EndPrimitive();\n"
+		"}\n"
+		;
 
-	//mStitchMeshing_F.release();
+	static std::string g_lb_fs =
+		"#version 330\n"
+		"precision lowp float;\n"
+		"uniform vec4 specular_color;\n"
+		"uniform sampler2D uvTexture;\n"
+		"in fData{\n"
+		"	vec3 to_eye;\n"
+		"	vec3 to_light;\n"
+		"	vec3 normal;\n"
+		"	vec2 tex_coord;\n"
+		"} frag;\n"
+		"out vec4 outColor;\n"
+		"void main() {\n"
+		"	vec4 Kd = vec4(texture( uvTexture, frag.tex_coord ).xyz,1);\n"
+		"	vec4 Ks = specular_color;\n"
+		"	vec4 Ka = Kd * 0.2;\n"
+		"	vec3 to_light = normalize(frag.to_light);\n"
+		"	vec3 to_eye = normalize(frag.to_eye);\n"
+		"	vec3 normal = normalize(frag.normal);\n"
+		"	vec3 refl = reflect(-to_light, normal);\n"
+		"	if (dot(to_light, normal) <= 0)\n"
+		"		discard;\n"
+		"	float diffuse_factor = max(0.0, dot(to_light, normal));\n"
+		"	float specular_factor = pow(max(dot(to_eye, refl), 0.0), 10.0);\n"
+		"	outColor = Ka + Kd*diffuse_factor + Ks*specular_factor;\n"
+		"}\n"
+		;
+
+	mLabeledMesh_F.init("Shader_F_Lb",
+		g_lb_vs,
+		g_lb_fs,
+		g_lb_geo);
 
     /* Default view setup */
     mCamera.arcball = Arcball();
@@ -213,6 +294,9 @@ Viewer::Viewer(std::string &filename, bool fullscreen)
 	}
 	mExampleImages.insert(mExampleImages.begin(),
 		std::make_pair(nvgImageIcon(ctx, loadmesh), ""));
+
+	mArrowTexture.load("../resources/arrow.png");
+	mUVTexture.load("../resources/uvTexture.png");
 
 	/* Initialize user interface */
     Window *window = new Window(this, "");
@@ -363,7 +447,7 @@ Viewer::Viewer(std::string &filename, bool fullscreen)
     });
 //Extraction
     mExtractBtn = new Button(window, "Extract", ENTYPO_ICON_FLASH);
-    mExtractBtn->setBackgroundColor(Color(0, 255, 0, 25));
+    mExtractBtn->setBackgroundColor(Color(0, 0, 255, 25));
     mExtractBtn->setCallback([&]() {
 		if (!mRes.tetMesh()) {
 
@@ -386,8 +470,12 @@ Viewer::Viewer(std::string &filename, bool fullscreen)
 		mLayers[PositionSingularities]->setChecked(false);
 		mLayers[Layers::PositionField]->setChecked(false);
 		mLayers[Layers::Boundary]->setChecked(false);
-		mLayers[OrientationSingularities]->setChecked(false);
+		mLayers[OrientationSingularities]->setChecked(false); 
 		mLayers[Layers::OrientationField]->setChecked(false);
+
+		mShow_stich_meshing_face->setChecked(false);
+		mShow_stich_meshing_edge->setChecked(false);
+		mShow_labeled_mesh_face->setChecked(false);
 
 		mExtractionResultShader_F_done.bind();
 		mExtractionResultShader_F_done.uploadAttrib("position", mRes.mV_final_rend);
@@ -400,27 +488,14 @@ Viewer::Viewer(std::string &filename, bool fullscreen)
 		mExtractionResultShader_E_done.uploadAttrib("color", MatrixXf(R4.block(3, 0, 3, R4.cols())));
 		mShow_E_done->setChecked(true);
 	});
-
-//Stitch meshing
-	mStitchMeshing = new Button(window, "Stitch Meshing", ENTYPO_ICON_FLASH);
-	mStitchMeshing->setBackgroundColor(Color(255, 0, 255, 25));
-	mStitchMeshing->setCallback([&]() {
+// Label mesh
+	mLabelMesh = new Button(window, "Label", ENTYPO_ICON_FLASH);
+	mLabelMesh->setBackgroundColor(Color(0, 255, 0, 25));
+	mLabelMesh->setCallback([&]() {
 		if (!mRes.tetMesh()) {
-
-			//mRes.re_color = true;
-			//mRes.doublets = true;
-			//mRes.splitting = true;
-			//mRes.triangles = true; //false;//
-			//mRes.decomposes = true;
-
-			//mRes.meshExtraction2D();
 			mRes.convert2Poly();
-
-			mRes.stitchMeshing();
-
-			mRes.exportResult();
-
-			mRes.convert2Rend();
+			mRes.labelMesh();
+			mRes.convertLabelMesh2Rend();
 		}
 		else {
 			std::cout << "Error: doesn't support 3D!\n";
@@ -436,6 +511,83 @@ Viewer::Viewer(std::string &filename, bool fullscreen)
 
 		mShow_F_done->setChecked(false);
 		mShow_E_done->setChecked(false);
+		mShow_aligned_mesh_face->setChecked(false);
+		mShow_aligned_mesh_face->setChecked(false);
+		mShow_stich_meshing_face->setChecked(false);
+		mShow_stich_meshing_face->setChecked(false);
+
+		mLabeledMesh_F.bind();
+		mLabeledMesh_F.uploadAttrib("position", mRes.mV_LbMesh_rend);
+		mLabeledMesh_F.uploadAttrib("tex_coord", mRes.mT_LbMesh_rend);
+		mLabeledMesh_F.uploadIndices(mRes.mF_LbMesh_rend);
+		mShow_labeled_mesh_face->setChecked(true);
+	});
+
+// align mesh
+	mStitchMeshing = new Button(window, "Align", ENTYPO_ICON_FLASH);
+	mStitchMeshing->setBackgroundColor(Color(255, 255, 0, 25));
+	mStitchMeshing->setCallback([&]() {
+		if (!mRes.tetMesh()) {
+			mRes.alignMesh();
+			mRes.convertAlignMesh2Rend();
+		}
+		else {
+			std::cout << "Error: doesn't support 3D!\n";
+		}
+		mLayers[PositionSingularities]->setChecked(false);
+		mLayers[Layers::PositionField]->setChecked(false);
+		mLayers[Layers::Boundary]->setChecked(false);
+		mLayers[OrientationSingularities]->setChecked(false);
+		mLayers[Layers::OrientationField]->setChecked(false);
+
+		////////////////////////////////////////////////////////////////////////////
+		// write to render buffer
+
+		mShow_F_done->setChecked(false);
+		mShow_E_done->setChecked(false);
+		mShow_labeled_mesh_face->setChecked(false);
+		mShow_stich_meshing_face->setChecked(false);
+		mShow_stich_meshing_edge->setChecked(false);
+
+		mAlignedMesh_F.bind();
+		mAlignedMesh_F.uploadAttrib("position", mRes.mV_AlMesh_rend);
+		mAlignedMesh_F.uploadAttrib("tex_coord", mRes.mT_AlMesh_rend);
+		mAlignedMesh_F.uploadAttrib("color", mRes.mC_AlMesh_rend);
+		mAlignedMesh_F.uploadIndices(mRes.mF_AlMesh_rend);
+		mShow_aligned_mesh_face->setChecked(true);
+
+		auto const &R4 = mRes.mE_AlMesh_rend;
+		mAlignedMesh_E.bind();
+		mAlignedMesh_E.uploadAttrib("position", MatrixXf(R4.block(0, 0, 3, R4.cols())));
+		mAlignedMesh_E.uploadAttrib("color", MatrixXf(R4.block(3, 0, 3, R4.cols())));
+		mShow_aligned_mesh_edge->setChecked(true);;
+	});
+
+// Stitch meshing
+	mStitchMeshing = new Button(window, "Stitch Meshing", ENTYPO_ICON_FLASH);
+	mStitchMeshing->setBackgroundColor(Color(255, 0, 255, 25));
+	mStitchMeshing->setCallback([&]() {
+		if (!mRes.tetMesh()) {
+			mRes.stitchMeshing();
+			mRes.convertStitchMesh2Rend();
+		}
+		else {
+			std::cout << "Error: doesn't support 3D!\n";
+		}
+		mLayers[PositionSingularities]->setChecked(false);
+		mLayers[Layers::PositionField]->setChecked(false);
+		mLayers[Layers::Boundary]->setChecked(false);
+		mLayers[OrientationSingularities]->setChecked(false);
+		mLayers[Layers::OrientationField]->setChecked(false);
+
+		////////////////////////////////////////////////////////////////////////////
+		// write to render buffer
+
+		mShow_F_done->setChecked(false);
+		mShow_E_done->setChecked(false);
+		mShow_labeled_mesh_face->setChecked(false);
+		mShow_aligned_mesh_face->setChecked(false);
+		mShow_aligned_mesh_edge->setChecked(false);
 
 		mStitchMeshing_F.bind();
 		mStitchMeshing_F.uploadAttrib("position", mRes.mV_StMesh_rend);
@@ -528,21 +680,32 @@ Viewer::Viewer(std::string &filename, bool fullscreen)
 
 	ConstraintsPopup->setLayout(new GroupLayout());
 
-	mShow_F_done = new CheckBox(ConstraintsPopup, "Face");
+	mShow_F_done = new CheckBox(ConstraintsPopup, "RemeshFace");
 	mShow_F_done->setId("showdoneF");
 	mShow_F_done->setChecked(false);
-	mShow_E_done = new CheckBox(ConstraintsPopup, "Edge");
+	mShow_E_done = new CheckBox(ConstraintsPopup, "RemeshEdge");
 	mShow_E_done->setId("showdoneE");
 	mShow_E_done->setChecked(false);
 
-	mShow_stich_meshing_face = new CheckBox(ConstraintsPopup, "StMesh");
+	mShow_labeled_mesh_face = new CheckBox(ConstraintsPopup, "LabeledMeshFace");
+	mShow_labeled_mesh_face->setId("showLabelMeshFace");
+	mShow_labeled_mesh_face->setChecked(false);
+
+	mShow_aligned_mesh_face = new CheckBox(ConstraintsPopup, "AlignedMeshFace");
+	mShow_aligned_mesh_face->setId("showAlignedMeshFace");
+	mShow_aligned_mesh_face->setChecked(false);
+
+	mShow_aligned_mesh_edge = new CheckBox(ConstraintsPopup, "AlignedMeshEdge");
+	mShow_aligned_mesh_edge->setId("showAlignedMeshEdge");
+	mShow_aligned_mesh_edge->setChecked(false);
+
+	mShow_stich_meshing_face = new CheckBox(ConstraintsPopup, "StitchMeshFace");
 	mShow_stich_meshing_face->setId("showStMeshFace");
 	mShow_stich_meshing_face->setChecked(false);
 
-	mShow_stich_meshing_edge = new CheckBox(ConstraintsPopup, "StMesh");
+	mShow_stich_meshing_edge = new CheckBox(ConstraintsPopup, "StitchMeshEdge");
 	mShow_stich_meshing_edge->setId("showStMeshEdge");
 	mShow_stich_meshing_edge->setChecked(false);
-
 
 	mOutputBtn = new Button(ConstraintsPopup, "Output", ENTYPO_ICON_FLASH);
 	mOutputBtn->setBackgroundColor(Color(0, 255, 0, 25));
@@ -551,8 +714,10 @@ Viewer::Viewer(std::string &filename, bool fullscreen)
 		if (!mRes.tetMesh()) {
 			sprintf(patho, "%s%s", filename.c_str(), "_surout.obj");
 			write_surface_mesh_OBJ(mRes.mV_tag, mRes.F_tag, patho);
-			sprintf(patho, "%s%s", filename.c_str(), "_surout.off");
-			write_surface_mesh_OFF(mRes.mV_tag, mRes.F_tag, patho);
+			//sprintf(patho, "%s%s", filename.c_str(), "_surout.off");
+			sprintf(patho, "%s%s", filename.c_str(), "_stmesh.obj");
+			//write_surface_mesh_OFF(mRes.mV_tag, mRes.F_tag, patho);
+			mRes.exportResult(patho);
 		}
 		else {
 			sprintf(patho, "%s%s", filename.c_str(), ".HYBRID");
@@ -747,7 +912,7 @@ void Viewer::drawContents() {
 	Eigen::Matrix4f mvp = proj * view * model;
 	Eigen::Vector4f civ =
 		(view * model).inverse() * Eigen::Vector4f(0.0f, 0.0f, 0.0f, 1.0f);
-#if 1
+
 	if (mRes.tetMesh()) {
 		mOrientationFieldShaderTet.bind();
 		mOrientationFieldShaderTet.uploadAttrib("q", mRes.Q());
@@ -892,10 +1057,9 @@ void Viewer::drawContents() {
 		shader.setUniform("mvp", mvp);
 		shader.drawArray(GL_LINES, 0, mRes.E_final_rend.cols());
 	}
-#endif
+
 	if (mShow_stich_meshing_face->checked()) {
 
-		
 		mStitchMeshing_F.bind();
 		
 		glEnable(GL_TEXTURE_2D);
@@ -910,6 +1074,57 @@ void Viewer::drawContents() {
 		glEnable(GL_POLYGON_OFFSET_FILL);
 		glPolygonOffset(1.0, 1.0);
 		mStitchMeshing_F.drawIndexed(GL_TRIANGLES, 0, mRes.mF_StMesh_rend.cols());
+
+		glDisable(GL_TEXTURE_2D);
+
+		glDisable(GL_POLYGON_OFFSET_FILL);
+	}
+
+	if (mShow_aligned_mesh_face->checked()) {
+
+		mAlignedMesh_F.bind();
+
+		glEnable(GL_TEXTURE_2D);
+		glActiveTexture(GL_TEXTURE0);
+		glBindTexture(GL_TEXTURE_2D, mArrowTexture.texture());
+		mAlignedMesh_F.setUniform("arrowTexture", 0);
+	
+		mAlignedMesh_F.setUniform("light_position", mLightPosition);
+		mAlignedMesh_F.setUniform("model", model);
+		mAlignedMesh_F.setUniform("view", view);
+		mAlignedMesh_F.setUniform("proj", proj);
+		glEnable(GL_POLYGON_OFFSET_FILL);
+		glPolygonOffset(1.0, 1.0);
+		mAlignedMesh_F.drawIndexed(GL_TRIANGLES, 0, mRes.mF_AlMesh_rend.cols());
+
+		glDisable(GL_TEXTURE_2D);
+
+		glDisable(GL_POLYGON_OFFSET_FILL);
+	}
+
+	if (mShow_aligned_mesh_edge->checked()) {
+		auto &shader = mAlignedMesh_E;
+		shader.bind();
+		shader.setUniform("mvp", mvp);
+		shader.drawArray(GL_LINES, 0, mRes.mE_AlMesh_rend.cols());
+	}
+
+	if (mShow_labeled_mesh_face->checked()) {
+
+		mLabeledMesh_F.bind();
+
+		glEnable(GL_TEXTURE_2D);
+		glActiveTexture(GL_TEXTURE0);
+		glBindTexture(GL_TEXTURE_2D, mUVTexture.texture());
+		mLabeledMesh_F.setUniform("uvTexture", 0);
+
+		mLabeledMesh_F.setUniform("light_position", mLightPosition);
+		mLabeledMesh_F.setUniform("model", model);
+		mLabeledMesh_F.setUniform("view", view);
+		mLabeledMesh_F.setUniform("proj", proj);
+		glEnable(GL_POLYGON_OFFSET_FILL);
+		glPolygonOffset(1.0, 1.0);
+		mLabeledMesh_F.drawIndexed(GL_TRIANGLES, 0, mRes.mF_LbMesh_rend.cols());
 
 		glDisable(GL_TEXTURE_2D);
 
@@ -946,27 +1161,3 @@ void Viewer::computeCameraMatrices(Eigen::Matrix4f &model,
 	model = model * scale(Eigen::Vector3f::Constant(mCamera.zoom * mCamera.modelZoom));
 	model = model * translate(mCamera.modelTranslation);
 }
-
-//void Viewer::LoadTexture(const char* filename)
-//{
-//	std::vector<unsigned char> image; //the raw pixels
-//	unsigned width, height;
-//
-//	//decode
-//	unsigned error = lodepng::decode(image, width, height, filename);
-//
-//	//if there's an error, display it
-//	if (error) std::cout << "decoder error " << error << ": " << lodepng_error_text(error) << std::endl;
-//
-//	glEnable(GL_TEXTURE_2D);
-//	glGenTextures(1, &texture[0]);
-//	glBindTexture(GL_TEXTURE_2D, texture[0]);
-//	glTexImage2D(GL_TEXTURE_2D, 0, 4, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, &image[0]);
-//	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-//	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-//	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-//	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-//
-//	//glBindTexture(GL_TEXTURE_2D, 0);
-//	//glDisable(GL_TEXTURE_2D);
-//}

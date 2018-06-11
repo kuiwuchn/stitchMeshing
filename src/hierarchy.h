@@ -152,10 +152,14 @@ public:
 
 // stitch meshing
 	void convert2Poly();
+	void labelMesh();
+	void alignMesh();
 	void stitchMeshing();
-	void convert2Rend();
+	void convertLabelMesh2Rend();
+	void convertAlignMesh2Rend();
+	void convertStitchMesh2Rend();
 	void removeQuadDecInc();
-	void exportResult();
+	void exportResult(char * path);
 
 public:
 	//for both 2D & 3D 
@@ -230,10 +234,26 @@ public:
 	MatrixXu F_tag_rend;
 	MatrixXu F_final_rend;
 
+	//////////////////////////////////////////////////////////////////////////
+	// labeled mesh
+	MatrixXf mV_LbMesh_rend;
+	MatrixXu mF_LbMesh_rend;
+	MatrixXf mE_LbMesh_rend;			
+	MatrixXf mT_LbMesh_rend;
+
+	//////////////////////////////////////////////////////////////////////////
+	// aligned mesh 
+	MatrixXf mV_AlMesh_rend;
+	MatrixXu mF_AlMesh_rend;
+	MatrixXf mE_AlMesh_rend;
+	MatrixXf mT_AlMesh_rend;
+	MatrixXf mC_AlMesh_rend;
+
+	//////////////////////////////////////////////////////////////////////////
+	// stitch mesh 
 	MatrixXf mV_StMesh_rend;
 	MatrixXu mF_StMesh_rend;
 	MatrixXf mE_StMesh_rend;
-
 	MatrixXf mT_StMesh_rend;
 	MatrixXf mC_StMesh_rend;
 

@@ -2,7 +2,7 @@
 
 // https://stackoverflow.com/questions/2328339/how-to-generate-n-different-colors-for-any-natural-number-n
 int indexcolors[128] = {
-	0x000000, 0xFFFF00, 0x1CE6FF, 0xFF34FF, 0xFF4A46, 0x008941, 0x006FA6, 0xA30059,
+	0xEEEEEE, 0xFFFF00, 0x1CE6FF, 0xFF34FF, 0xFF4A46, 0x008941, 0x006FA6, 0xA30059,
 	0xFFDBE5, 0x7A4900, 0x0000A6, 0x63FFAC, 0xB79762, 0x004D43, 0x8FB0FF, 0x997D87,
 	0x5A0007, 0x809693, 0xFEFFE6, 0x1B4400, 0x4FC601, 0x3B5DFF, 0x4A3B53, 0xFF2F80,
 	0x61615A, 0xBA0900, 0x6B7900, 0x00C2A0, 0xFFAA92, 0xFF90C9, 0xB903AA, 0xD16100,
@@ -32,7 +32,7 @@ void MultiResolutionHierarchy::convert2Poly()
 	std::cout << "Done\n";
 }
 
-void MultiResolutionHierarchy::stitchMeshing()
+void MultiResolutionHierarchy::labelMesh()
 {
 	//////////////////////////////////////////////////////////////////////////
 	std::cout << "------------ cut bad quad ------------\n";
@@ -85,7 +85,7 @@ void MultiResolutionHierarchy::stitchMeshing()
 	mPoly->setEdgeFlags(cut2ndEdgeFlags);
 
 	mDual->fixUVMismatch();
-	
+
 	mDual->findFaceGroups();
 	mDual->fitFaceEdgesOrder();
 	mDual->labelTriangleFace();
@@ -149,11 +149,11 @@ void MultiResolutionHierarchy::stitchMeshing()
 	mPoly = new HE_Polyhedron(mergeVerts_2, mergeFaces_2);
 	mDual = new DualGraph(mPoly);
 	mPoly->setEdgeFlags(mergeEdgeFlags_2);
-	
+
 	mDual->findFaceGroups();
 	mDual->fitFaceEdgesOrder();
 	mDual->labelTriangleFace();
-	
+
 	mDual->HVCheck();
 	mDual->BadVertexCheck();
 #endif
@@ -163,23 +163,19 @@ void MultiResolutionHierarchy::stitchMeshing()
 #if 1	
 	mDual->breakConnectIncOrDec();
 #endif
-
 	std::cout << "------------------------------------------ labeling\n";
+}
 
-#if 1
+void MultiResolutionHierarchy::alignMesh()
+{
 	mDual->findFaceGroups();
 	mDual->fitFaceEdgesOrder();
 	mDual->labelTriangleFace();
 	mDual->HVCheck();
 	mDual->BadVertexCheck();
-#endif
-
-	//std::string outputQuadFilename = filename + "_uv_final_mesh.obj";
-	//gDual->exportUVMesh(outputQuadFilename.c_str());
 
 	////////////////////////////////////////////////////////////////////////
 	std::cout << "------------ wale mismatch minimization ------------\n";
-#if 1
 	mDual->findTopBtmGroupId();
 	mDual->waleMismatchSolver();
 	mDual->findLoops();
@@ -187,10 +183,12 @@ void MultiResolutionHierarchy::stitchMeshing()
 	mDual->findWaleMismatch();
 	mDual->HVCheck();
 	mDual->BadVertexCheck();
-#endif
 
 	std::cout << "------------------------------------------ alignment\n";
+}
 
+void MultiResolutionHierarchy::stitchMeshing()
+{
 	//////////////////////////////////////////////////////////////////////////
 	std::cout << "------------ subdivision ------------\n";
 #if 1
@@ -225,7 +223,459 @@ cyPoint3f colorConverter(int hexValue)
 	return rgbColor;
 }
 
-void MultiResolutionHierarchy::convert2Rend()
+void MultiResolutionHierarchy::convertLabelMesh2Rend()
+{
+	int triNum = 0, quadNum = 0, penNum = 0;
+	for (int fi = 0; fi < mPoly->numFaces(); fi++) {
+		HE_Face* f = mPoly->face(fi);
+		if (f->hole()) continue;
+
+		if (f->NumHalfEdge() == 3) triNum++;
+		else if (f->NumHalfEdge() == 4) quadNum++;
+		else if (f->NumHalfEdge() == 5) penNum++;
+	}
+
+	int totalVNum = triNum * 3 + quadNum * 4 + penNum * 5;
+
+	mV_LbMesh_rend.resize(3, totalVNum);
+	mT_LbMesh_rend.resize(2, totalVNum);
+
+	int vtCount = 0;
+	for (int fi = 0; fi < mPoly->numFaces(); fi++)
+	{
+		HE_Face* f = mPoly->face(fi);
+		if (f->hole()) continue;
+
+		if (f->NumHalfEdge() == 4)
+		{
+			while (!f->edge()->TestFlag(EFLAG_VERTICAL))
+			{
+				f->edge(f->edge()->next());
+			}
+
+			mV_LbMesh_rend(0, vtCount + 0) = f->edge()->src()->position().x;
+			mV_LbMesh_rend(1, vtCount + 0) = f->edge()->src()->position().y;
+			mV_LbMesh_rend(2, vtCount + 0) = f->edge()->src()->position().z;
+			mV_LbMesh_rend(0, vtCount + 1) = f->edge()->next()->src()->position().x;
+			mV_LbMesh_rend(1, vtCount + 1) = f->edge()->next()->src()->position().y;
+			mV_LbMesh_rend(2, vtCount + 1) = f->edge()->next()->src()->position().z;
+			mV_LbMesh_rend(0, vtCount + 2) = f->edge()->next()->next()->src()->position().x;
+			mV_LbMesh_rend(1, vtCount + 2) = f->edge()->next()->next()->src()->position().y;
+			mV_LbMesh_rend(2, vtCount + 2) = f->edge()->next()->next()->src()->position().z;
+			mV_LbMesh_rend(0, vtCount + 3) = f->edge()->next()->next()->next()->src()->position().x;
+			mV_LbMesh_rend(1, vtCount + 3) = f->edge()->next()->next()->next()->src()->position().y;
+			mV_LbMesh_rend(2, vtCount + 3) = f->edge()->next()->next()->next()->src()->position().z;
+
+			mT_LbMesh_rend(0, vtCount + 0) = 0;
+			mT_LbMesh_rend(1, vtCount + 0) = 0;
+			mT_LbMesh_rend(0, vtCount + 1) = 0.5;
+			mT_LbMesh_rend(1, vtCount + 1) = 0;
+			mT_LbMesh_rend(0, vtCount + 2) = 0.5;
+			mT_LbMesh_rend(1, vtCount + 2) = 1;
+			mT_LbMesh_rend(0, vtCount + 3) = 0;
+			mT_LbMesh_rend(1, vtCount + 3) = 1;
+			//exportFile << "vt " << 0 << " " << 0 << std::endl;
+			//exportFile << "vt " << 0.5 << " " << 0 << std::endl;
+			//exportFile << "vt " << 0.5 << " " << 1 << std::endl;
+			//exportFile << "vt " << 0 << " " << 1 << std::endl;
+			vtCount += 4;
+		}
+		else if (f->NumHalfEdge() == 3)
+		{
+			int hCount = 0, vCount = 0;
+			HE_Face::const_edge_circulator e = f->begin();
+			HE_Face::const_edge_circulator sentinel = e;
+			do
+			{
+				if ((*e)->TestFlag(EFLAG_VERTICAL)) vCount++;
+				if ((*e)->TestFlag(EFLAG_HORIZONTAL)) hCount++;
+				++e;
+			} while (e != sentinel);
+
+			if (hCount == 2 && vCount == 1)
+			{
+				while (!f->edge()->TestFlag(EFLAG_VERTICAL))
+				{
+					f->edge(f->edge()->next());
+				}
+
+				mV_LbMesh_rend(0, vtCount + 0) = f->edge()->src()->position().x;
+				mV_LbMesh_rend(1, vtCount + 0) = f->edge()->src()->position().y;
+				mV_LbMesh_rend(2, vtCount + 0) = f->edge()->src()->position().z;
+				mV_LbMesh_rend(0, vtCount + 1) = f->edge()->next()->src()->position().x;
+				mV_LbMesh_rend(1, vtCount + 1) = f->edge()->next()->src()->position().y;
+				mV_LbMesh_rend(2, vtCount + 1) = f->edge()->next()->src()->position().z;
+				mV_LbMesh_rend(0, vtCount + 2) = f->edge()->next()->next()->src()->position().x;
+				mV_LbMesh_rend(1, vtCount + 2) = f->edge()->next()->next()->src()->position().y;
+				mV_LbMesh_rend(2, vtCount + 2) = f->edge()->next()->next()->src()->position().z;
+
+				mT_LbMesh_rend(0, vtCount + 1) = 1;
+				mT_LbMesh_rend(1, vtCount + 1) = 0;
+				mT_LbMesh_rend(0, vtCount + 2) = 0.5;
+				mT_LbMesh_rend(1, vtCount + 2) = 0;
+				mT_LbMesh_rend(0, vtCount + 0) = 0.5;
+				mT_LbMesh_rend(1, vtCount + 0) = 1;
+				//mT_LbMesh_rend(0, vtCount + 0) = 0.5;
+				//mT_LbMesh_rend(1, vtCount + 0) = 1;
+				//mT_LbMesh_rend(0, vtCount + 1) = 1;
+				//mT_LbMesh_rend(1, vtCount + 1) = 1;
+				//mT_LbMesh_rend(0, vtCount + 2) = 1;
+				//mT_LbMesh_rend(1, vtCount + 2) = 0;
+				//exportFile << "vt " << 0.5 << " " << 0 << std::endl;
+				//exportFile << "vt " << 1 << " " << 0 << std::endl;
+				//exportFile << "vt " << 1 << " " << 1 << std::endl;
+			}
+			else if (hCount == 1 && vCount == 2)
+			{
+				while (!f->edge()->TestFlag(EFLAG_HORIZONTAL))
+				{
+					f->edge(f->edge()->next());
+				}
+
+				mV_LbMesh_rend(0, vtCount + 0) = f->edge()->src()->position().x;
+				mV_LbMesh_rend(1, vtCount + 0) = f->edge()->src()->position().y;
+				mV_LbMesh_rend(2, vtCount + 0) = f->edge()->src()->position().z;
+				mV_LbMesh_rend(0, vtCount + 1) = f->edge()->next()->src()->position().x;
+				mV_LbMesh_rend(1, vtCount + 1) = f->edge()->next()->src()->position().y;
+				mV_LbMesh_rend(2, vtCount + 1) = f->edge()->next()->src()->position().z;
+				mV_LbMesh_rend(0, vtCount + 2) = f->edge()->next()->next()->src()->position().x;
+				mV_LbMesh_rend(1, vtCount + 2) = f->edge()->next()->next()->src()->position().y;
+				mV_LbMesh_rend(2, vtCount + 2) = f->edge()->next()->next()->src()->position().z;
+
+				mT_LbMesh_rend(0, vtCount + 1) = 0.5;
+				mT_LbMesh_rend(1, vtCount + 1) = 1;
+				mT_LbMesh_rend(0, vtCount + 2) = 1;
+				mT_LbMesh_rend(1, vtCount + 2) = 1;
+				mT_LbMesh_rend(0, vtCount + 0) = 1;
+				mT_LbMesh_rend(1, vtCount + 0) = 0;
+				//mT_LbMesh_rend(0, vtCount + 0) = 1;
+				//mT_LbMesh_rend(1, vtCount + 0) = 0;
+				//mT_LbMesh_rend(0, vtCount + 1) = 0.5;
+				//mT_LbMesh_rend(1, vtCount + 1) = 0;
+				//mT_LbMesh_rend(0, vtCount + 2) = 0.5;
+				//mT_LbMesh_rend(1, vtCount + 2) = 1;
+				//exportFile << "vt " << 1 << " " << 1 << std::endl;
+				//exportFile << "vt " << 0.5 << " " << 1 << std::endl;
+				//exportFile << "vt " << 0.5 << " " << 0 << std::endl;
+			}
+			else std::cout << "ERROR: export uv mesh\n";
+			vtCount += 3;
+		}
+		else std::cout << "ERROR: export uv mesh\n";
+	}
+
+	int triTotalNum = triNum + 2 * quadNum + 3 * penNum;
+
+	mF_LbMesh_rend.resize(3, triTotalNum);
+
+	int c = 0;
+	int vi = 0;
+	for (int fi = 0; fi < mPoly->numFaces(); fi++)
+	{
+		const HE_Face* f = mPoly->face(fi);
+
+		if (f->hole()) continue;
+
+		std::vector<int> viList; viList.clear();
+		HE_Face::const_edge_circulator e = f->begin();
+		HE_Face::const_edge_circulator sentinel = e;
+		do
+		{
+			viList.push_back(vi);
+			vi++;
+			++e;
+		} while (e != sentinel);
+
+		if (f->NumHalfEdge() == 3)
+		{
+			mF_LbMesh_rend(0, c) = viList[0];
+			mF_LbMesh_rend(1, c) = viList[1];
+			mF_LbMesh_rend(2, c++) = viList[2];
+		}
+		else if (f->NumHalfEdge() == 4)
+		{
+			mF_LbMesh_rend(0, c) = viList[0];
+			mF_LbMesh_rend(1, c) = viList[1];
+			mF_LbMesh_rend(2, c++) = viList[3];
+			   
+			mF_LbMesh_rend(0, c) = viList[1];
+			mF_LbMesh_rend(1, c) = viList[2];
+			mF_LbMesh_rend(2, c++) = viList[3];
+		}
+		else if (f->NumHalfEdge() == 5)
+		{
+			mF_LbMesh_rend(0, c) = viList[0];
+			mF_LbMesh_rend(1, c) = viList[1];
+			mF_LbMesh_rend(2, c++) = viList[4];
+			   
+			mF_LbMesh_rend(0, c) = viList[1];
+			mF_LbMesh_rend(1, c) = viList[2];
+			mF_LbMesh_rend(2, c++) = viList[4];
+			   
+			mF_LbMesh_rend(0, c) = viList[2];
+			mF_LbMesh_rend(1, c) = viList[3];
+			mF_LbMesh_rend(2, c++) = viList[4];
+		}
+	}
+}
+
+void MultiResolutionHierarchy::convertAlignMesh2Rend()
+{
+	int triNum = 0, quadNum = 0, penNum = 0;
+	for (int fi = 0; fi < mPoly->numFaces(); fi++) {
+		HE_Face* f = mPoly->face(fi);
+		if (f->hole()) continue;
+
+		if (f->NumHalfEdge() == 3) triNum++;
+		else if (f->NumHalfEdge() == 4) quadNum++;
+		else if (f->NumHalfEdge() == 5) penNum++;
+	}
+
+	int totalVNum = triNum * 3 + quadNum * 4 + penNum * 5;
+
+	mV_AlMesh_rend.resize(3, totalVNum);
+	mC_AlMesh_rend.resize(3, totalVNum);
+	mT_AlMesh_rend.resize(2, totalVNum);
+ 
+	int vi = 0;
+	for (int j = 0; j < (int)mDual->_groupFaceIdx.size(); j++)
+	{
+		cyPoint3f c = colorConverter(indexcolors[j % 128]);
+		for (int i = 0; i < (int)mDual->_groupFaceIdx[j].size(); i++)
+		{
+			const HE_Face* f = mPoly->face(mDual->_groupFaceIdx[j][i]);
+			if (f->hole())
+				continue;
+
+			HE_Face::const_edge_circulator e = f->begin();
+			HE_Face::const_edge_circulator sentinel = e;
+
+			int idx = 0;
+			if (f->TestFlag(VEF_FLAG_QUAD))
+			{
+				do
+				{
+					const HE_Vertex* v = (*e)->dst();
+					switch (idx)
+					{
+					case 0:
+						mT_AlMesh_rend(0, vi) = 1;
+						mT_AlMesh_rend(1, vi) = 0;
+						break;
+					case 1:
+						mT_AlMesh_rend(0, vi) = 1;
+						mT_AlMesh_rend(1, vi) = 1;
+						break;
+					case 2:
+						mT_AlMesh_rend(0, vi) = 0;
+						mT_AlMesh_rend(1, vi) = 1;
+						break;
+					case 3:
+						mT_AlMesh_rend(0, vi) = 0;
+						mT_AlMesh_rend(1, vi) = 0;
+						break;
+					default: break;
+					}
+					mV_AlMesh_rend(0, vi) = v->position().x;
+					mV_AlMesh_rend(1, vi) = v->position().y;
+					mV_AlMesh_rend(2, vi) = v->position().z;
+
+					mC_AlMesh_rend(0, vi) = c.x;
+					mC_AlMesh_rend(1, vi) = c.y;
+					mC_AlMesh_rend(2, vi++) = c.z;
+					++e; ++idx;
+				} while (e != sentinel);
+			}
+			else if (f->TestFlag(VEF_FLAG_INC))
+			{
+				do
+				{
+					const HE_Vertex* v = (*e)->dst();
+					switch (idx)
+					{
+					case 0:
+						mT_AlMesh_rend(0, vi) = 1;
+						mT_AlMesh_rend(1, vi) = 0;
+						break;
+					case 1:
+						mT_AlMesh_rend(0, vi) = 1;
+						mT_AlMesh_rend(1, vi) = 1;
+						break;
+					case 2:
+						mT_AlMesh_rend(0, vi) = 0;
+						mT_AlMesh_rend(1, vi) = 1;
+						break;
+					case 3:
+						mT_AlMesh_rend(0, vi) = 0;
+						mT_AlMesh_rend(1, vi) = 0;
+						break;
+					case 4:
+						mT_AlMesh_rend(0, vi) = 0.5;
+						mT_AlMesh_rend(1, vi) = 0;
+						break;
+					default: break;
+					}
+					mV_AlMesh_rend(0, vi) = v->position().x;
+					mV_AlMesh_rend(1, vi) = v->position().y;
+					mV_AlMesh_rend(2, vi) = v->position().z;
+					mC_AlMesh_rend(0, vi) = c.x;
+					mC_AlMesh_rend(1, vi) = c.y;
+					mC_AlMesh_rend(2, vi++) = c.z;
+					++e; ++idx;
+				} while (e != sentinel);
+			}
+			else if (f->TestFlag(VEF_FLAG_DEC))
+			{
+				do
+				{
+					const HE_Vertex* v = (*e)->dst();
+					switch (idx)
+					{
+					case 0:
+						mT_AlMesh_rend(0, vi) = 1;
+						mT_AlMesh_rend(1, vi) = 0;
+						break;
+					case 1:
+						mT_AlMesh_rend(0, vi) = 1;
+						mT_AlMesh_rend(1, vi) = 1;
+						break;
+					case 2:
+						mT_AlMesh_rend(0, vi) = 0.5;
+						mT_AlMesh_rend(1, vi) = 1;
+						break;
+					case 3:
+						mT_AlMesh_rend(0, vi) = 0;
+						mT_AlMesh_rend(1, vi) = 1;
+						break;
+					case 4:
+						mT_AlMesh_rend(0, vi) = 0;
+						mT_AlMesh_rend(1, vi) = 0;
+						break;
+					default: break;
+					}
+					mV_AlMesh_rend(0, vi) = v->position().x;
+					mV_AlMesh_rend(1, vi) = v->position().y;
+					mV_AlMesh_rend(2, vi) = v->position().z;
+					mC_AlMesh_rend(0, vi) = c.x;
+					mC_AlMesh_rend(1, vi) = c.y;
+					mC_AlMesh_rend(2, vi++) = c.z;
+					++e; ++idx;
+				} while (e != sentinel);
+			}
+			else if (f->TestFlag(VEF_FLAG_QUAD_SHORTROW_L) ||
+				f->TestFlag(VEF_FLAG_QUAD_SHORTROW_R))
+			{
+				do
+				{
+					const HE_Vertex* v = (*e)->dst();
+					mT_AlMesh_rend(0, vi) = 0;
+					mT_AlMesh_rend(1, vi) = 0;
+					mV_AlMesh_rend(0, vi) = v->position().x;
+					mV_AlMesh_rend(1, vi) = v->position().y;
+					mV_AlMesh_rend(2, vi) = v->position().z;
+					mC_AlMesh_rend(0, vi) = c.x;
+					mC_AlMesh_rend(1, vi) = c.y;
+					mC_AlMesh_rend(2, vi++) = c.z;
+					++e;
+				} while (e != sentinel);
+			}
+			else {
+				do
+				{
+					const HE_Vertex* v = (*e)->dst();
+					mT_AlMesh_rend(0, vi) = 0;
+					mT_AlMesh_rend(1, vi) = 0;
+					mV_AlMesh_rend(0, vi) = v->position().x;
+					mV_AlMesh_rend(1, vi) = v->position().y;
+					mV_AlMesh_rend(2, vi) = v->position().z;
+					mC_AlMesh_rend(0, vi) = c.x;
+					mC_AlMesh_rend(1, vi) = c.y;
+					mC_AlMesh_rend(2, vi++) = c.z;
+					++e;
+				} while (e != sentinel);
+			}
+		}
+	}
+
+	int triTotalNum = triNum + 2 * quadNum + 3 * penNum;
+
+	mF_AlMesh_rend.resize(3, triTotalNum);
+
+	int c = 0;
+	vi = 0;
+	for (int j = 0; j < (int)mDual->_groupFaceIdx.size(); j++)
+	{
+		for (int i = 0; i < (int)mDual->_groupFaceIdx[j].size(); i++)
+		{
+			const HE_Face* f = mPoly->face(mDual->_groupFaceIdx[j][i]);
+
+			if (f->hole()) continue;
+
+			std::vector<int> viList; viList.clear();
+			HE_Face::const_edge_circulator e = f->begin();
+			HE_Face::const_edge_circulator sentinel = e;
+			do
+			{
+				viList.push_back(vi);
+				vi++;
+				++e;
+			} while (e != sentinel);
+
+			if (f->NumHalfEdge() == 3)
+			{
+				mF_AlMesh_rend(0, c) = viList[0];
+				mF_AlMesh_rend(1, c) = viList[1];
+				mF_AlMesh_rend(2, c++) = viList[2];
+			}
+			else if (f->NumHalfEdge() == 4)
+			{
+				mF_AlMesh_rend(0, c) = viList[0];
+				mF_AlMesh_rend(1, c) = viList[1];
+				mF_AlMesh_rend(2, c++) = viList[3];
+
+				mF_AlMesh_rend(0, c) = viList[1];
+				mF_AlMesh_rend(1, c) = viList[2];
+				mF_AlMesh_rend(2, c++) = viList[3];
+			}
+			else if (f->NumHalfEdge() == 5)
+			{
+				mF_AlMesh_rend(0, c) = viList[0];
+				mF_AlMesh_rend(1, c) = viList[1];
+				mF_AlMesh_rend(2, c++) = viList[4];
+				   
+				mF_AlMesh_rend(0, c) = viList[1];
+				mF_AlMesh_rend(1, c) = viList[2];
+				mF_AlMesh_rend(2, c++) = viList[4];
+				   
+				mF_AlMesh_rend(0, c) = viList[2];
+				mF_AlMesh_rend(1, c) = viList[3];
+				mF_AlMesh_rend(2, c++) = viList[4];
+			}
+		}
+	}
+
+	mE_AlMesh_rend.resize(6, mPoly->numHalfEdges() * 2);
+
+	for (int ei = 0; ei < mPoly->numHalfEdges(); ei++)
+	{
+		HE_HalfEdge* he = mPoly->halfedge(ei);
+		mE_AlMesh_rend(0, ei * 2 + 0) = he->src()->position().x;
+		mE_AlMesh_rend(1, ei * 2 + 0) = he->src()->position().y;
+		mE_AlMesh_rend(2, ei * 2 + 0) = he->src()->position().z;
+		mE_AlMesh_rend(3, ei * 2 + 0) = 0;
+		mE_AlMesh_rend(4, ei * 2 + 0) = 0;
+		mE_AlMesh_rend(5, ei * 2 + 0) = 0;
+		   
+		mE_AlMesh_rend(0, ei * 2 + 1) = he->dst()->position().x;
+		mE_AlMesh_rend(1, ei * 2 + 1) = he->dst()->position().y;
+		mE_AlMesh_rend(2, ei * 2 + 1) = he->dst()->position().z;
+		mE_AlMesh_rend(3, ei * 2 + 1) = 0;
+		mE_AlMesh_rend(4, ei * 2 + 1) = 0;
+		mE_AlMesh_rend(5, ei * 2 + 1) = 0;
+	}
+}
+
+void MultiResolutionHierarchy::convertStitchMesh2Rend()
 {
 	std::cout << "Convert 2 render buffer...";
 
@@ -789,11 +1239,9 @@ void MultiResolutionHierarchy::removeQuadDecInc()
 	mCleanDual->findLoops();
 }
 
-void MultiResolutionHierarchy::exportResult()
+void MultiResolutionHierarchy::exportResult(char * path)
 {
-	std::string objFilename = "result_mesh.obj";
-	std::ofstream exportFile;
-	exportFile.open(objFilename.c_str());
+	std::fstream exportFile(path, std::ios::out);
 
 	for (int vi = 0; vi < mCleanPoly->numVertices(); vi++)
 	{
@@ -803,6 +1251,7 @@ void MultiResolutionHierarchy::exportResult()
 	for (int fi = 0; fi < mCleanPoly->numFaces(); fi++)
 	{
 		HE_Face* f = mCleanPoly->face(fi);
+		if (f->hole()) continue;
 
 		HE_Face::const_edge_circulator e = f->begin();
 		HE_Face::const_edge_circulator sentinel = e;

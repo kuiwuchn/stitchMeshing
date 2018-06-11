@@ -128,8 +128,6 @@ protected:
 
     void updatePositionSingularities();
     void updateOrientationSingularities();
-
-	//void LoadTexture(const char* filename);
 protected:
     struct CameraParameters {
         Arcball arcball;
@@ -193,11 +191,16 @@ protected:
 	CheckBox *mShow_F_done;
 	CheckBox *mShow_E_done;
 
+	CheckBox *mShow_labeled_mesh_face;
+	CheckBox *mShow_aligned_mesh_face;
+	CheckBox *mShow_aligned_mesh_edge;
 	CheckBox *mShow_stich_meshing_face;
 	CheckBox *mShow_stich_meshing_edge;
 
 	//////////////////////////////////////////////////////////////////////////
 
+	Button* mLabelMesh;
+	Button* mAlignMesh;
 	Button* mStitchMeshing;
 
 	//////////////////////////////////////////////////////////////////////////
@@ -215,9 +218,11 @@ protected:
 	GLShader mEdge_color_morph2;
 
 	GLShader mExtractionResultShader_E_done;
-
 	GLShader mExtractionResultShader_F_done;
 
+	GLShader mLabeledMesh_F;
+	GLShader mAlignedMesh_F;
+	GLShader mAlignedMesh_E;
 	GLShader mStitchMeshing_F;
 	GLShader mStitchMeshing_E;
 
@@ -229,6 +234,6 @@ protected:
     Vector3f mLightPosition;
     bool mTranslate;
 
-	//GLuint   texture[1];
 	GLTexture mArrowTexture;
+	GLTexture mUVTexture;
 };
