@@ -4,8 +4,10 @@
 #include "bvh.h"
 #include <nanogui/serializer/opengl.h>
 
+//#include "lodepng.h"
+
 Viewer::Viewer(std::string &filename, bool fullscreen)
-    : Screen(Vector2i(1280, 960), "Robust Quad/Hex-dominant Meshes", true),
+    : Screen(Vector2i(1280, 960), "Stitch Meshing", true),
       mOptimizer(nullptr) {
 
     mOptimizer = new Optimizer(mRes);
@@ -79,10 +81,115 @@ Viewer::Viewer(std::string &filename, bool fullscreen)
 		(const char *)shader_singularity_tet_vert,
 		(const char *)shader_singularity_tet_frag);
 
-	mStitchMeshing_F.init("Shader_F_local",
-		(const char *)shader_mesh_vert,
-		(const char *)shader_mesh_frag,
-		(const char *)shader_mesh_geo);
+	static std::string g_vs =
+		"#version 330\n"
+		"in vec3 position;\n"
+		"in vec3 normal;\n"
+		"in vec2 tex_coord;\n"
+		"in vec3 color;\n"
+		"out vec3 normal_geo;\n"
+		"out vData{\n"
+		"	vec3 normal;\n"
+		"	vec2 tex_coord;\n"
+		"	vec3 color;\n"
+		"} geo;\n"
+		"void main() {\n"
+		"	gl_Position = vec4(position, 1.0);\n"
+		"	geo.normal = normal;\n"
+		"	geo.tex_coord = tex_coord;\n"
+		"	geo.color = color;\n"
+		"}\n"
+		;
+
+	static std::string g_geo =
+		"#version 330\n"
+		"layout(triangles) in;\n"
+		"layout(triangle_strip, max_vertices = 3) out;\n"
+		"uniform vec3 light_position;\n"
+		"uniform mat4 proj, model, view;\n"
+		"uniform vec4 split;\n"
+		"in vData{\n"
+		"	vec3 normal;\n"
+		"	vec2 tex_coord;\n"
+		"	vec3 color;\n"
+		"} vertices[];\n"
+		"out fData{\n"
+		"	vec3 to_eye;\n"
+		"	vec3 to_light;\n"
+		"	vec3 normal;\n"
+		"	vec2 tex_coord;\n"
+		"	vec3 color;\n"
+		"} frag;\n"
+		"void main() {\n"
+		"	if (dot(split, gl_in[0].gl_Position) < 0 ||\n"
+		"		dot(split, gl_in[1].gl_Position) < 0 ||\n"
+		"		dot(split, gl_in[2].gl_Position) < 0)\n"
+		"		return;\n"
+		"	frag.normal = normalize(cross(\n"
+		"		(view * (model * (gl_in[1].gl_Position - gl_in[0].gl_Position))).xyz,\n"
+		"		(view * (model * (gl_in[2].gl_Position - gl_in[0].gl_Position))).xyz));\n"
+		"	for (int i = 0; i < 3; ++i) {\n"
+		"		vec4 pos_camera = view * (model * gl_in[i].gl_Position);\n"
+		"		gl_Position = proj * pos_camera;\n"
+		"		frag.to_light = (view * vec4(light_position, 1.0)).xyz - pos_camera.xyz;\n"
+		"		frag.to_eye = -pos_camera.xyz;\n"
+		"		frag.tex_coord = vertices[i].tex_coord;\n"
+		"		frag.color = vertices[i].color;\n"
+		"		EmitVertex();\n"
+		"	}\n"
+		"	EndPrimitive();\n"
+		"}\n"
+		;
+
+	static std::string g_fs =
+		"#version 330\n"
+		"precision lowp float;\n"
+		"uniform vec4 specular_color;\n"
+		"uniform sampler2D arrowTexture;\n"
+		"in fData{\n"
+		"	vec3 to_eye;\n"
+		"	vec3 to_light;\n"
+		"	vec3 normal;\n"
+		"	vec2 tex_coord;\n"
+		"	vec3 color;\n"
+		"} frag;\n"
+		"out vec4 outColor;\n"
+		"void main() {\n"
+		"	vec4 Kd = vec4(frag.color * texture( arrowTexture, frag.tex_coord ).x,1);\n"
+		"	vec4 Ks = specular_color;\n"
+		"	vec4 Ka = Kd * 0.2;\n"
+		"	vec3 to_light = normalize(frag.to_light);\n"
+		"	vec3 to_eye = normalize(frag.to_eye);\n"
+		"	vec3 normal = normalize(frag.normal);\n"
+		"	vec3 refl = reflect(-to_light, normal);\n"
+		"	if (dot(to_light, normal) <= 0)\n"
+		"		discard;\n"
+		"	float diffuse_factor = max(0.0, dot(to_light, normal));\n"
+		"	float specular_factor = pow(max(dot(to_eye, refl), 0.0), 10.0);\n"
+		"	outColor = Ka + Kd*diffuse_factor + Ks*specular_factor;\n"
+		"//	outColor = vec4(frag.tex_coord.x, frag.tex_coord.y, 0, 1);\n"
+		"	//outColor.xyz = texture( arrowTexture, frag.tex_coord ).xyz;\n"
+		" //outColor = vec4( texture( arrowTexture, frag.tex_coord ).x * 255);\n"
+		"}\n"
+		;
+	
+	mStitchMeshing_F.init("Shader_F_St",
+		g_vs,
+		g_fs,
+		g_geo);
+
+	//mStitchMeshing_F.bind();
+
+	mArrowTexture.load("arrow.png");
+
+//	LoadTexture("arrow.png");
+
+	//GLint para = mStitchMeshing_F.uniform("arrowTexture");
+	//glUniform1i(para, 0);
+	//glActiveTexture(GL_TEXTURE0);
+	
+
+	//mStitchMeshing_F.release();
 
     /* Default view setup */
     mCamera.arcball = Arcball();
@@ -332,6 +439,8 @@ Viewer::Viewer(std::string &filename, bool fullscreen)
 
 		mStitchMeshing_F.bind();
 		mStitchMeshing_F.uploadAttrib("position", mRes.mV_StMesh_rend);
+		mStitchMeshing_F.uploadAttrib("tex_coord", mRes.mT_StMesh_rend);
+		mStitchMeshing_F.uploadAttrib("color", mRes.mC_StMesh_rend);
 		mStitchMeshing_F.uploadIndices(mRes.mF_StMesh_rend);
 		mShow_stich_meshing_face->setChecked(true);
 		
@@ -638,7 +747,7 @@ void Viewer::drawContents() {
 	Eigen::Matrix4f mvp = proj * view * model;
 	Eigen::Vector4f civ =
 		(view * model).inverse() * Eigen::Vector4f(0.0f, 0.0f, 0.0f, 1.0f);
-
+#if 1
 	if (mRes.tetMesh()) {
 		mOrientationFieldShaderTet.bind();
 		mOrientationFieldShaderTet.uploadAttrib("q", mRes.Q());
@@ -783,17 +892,27 @@ void Viewer::drawContents() {
 		shader.setUniform("mvp", mvp);
 		shader.drawArray(GL_LINES, 0, mRes.E_final_rend.cols());
 	}
-
+#endif
 	if (mShow_stich_meshing_face->checked()) {
+
+		
 		mStitchMeshing_F.bind();
+		
+		glEnable(GL_TEXTURE_2D);
+		glActiveTexture(GL_TEXTURE0);
+		glBindTexture(GL_TEXTURE_2D, mArrowTexture.texture());
+		mStitchMeshing_F.setUniform("arrowTexture", 0);
+
 		mStitchMeshing_F.setUniform("light_position", mLightPosition);
 		mStitchMeshing_F.setUniform("model", model);
 		mStitchMeshing_F.setUniform("view", view);
 		mStitchMeshing_F.setUniform("proj", proj);
-		mStitchMeshing_F.setUniform("base_color", mBaseColorBoundary);
 		glEnable(GL_POLYGON_OFFSET_FILL);
 		glPolygonOffset(1.0, 1.0);
 		mStitchMeshing_F.drawIndexed(GL_TRIANGLES, 0, mRes.mF_StMesh_rend.cols());
+
+		glDisable(GL_TEXTURE_2D);
+
 		glDisable(GL_POLYGON_OFFSET_FILL);
 	}
 
@@ -828,4 +947,26 @@ void Viewer::computeCameraMatrices(Eigen::Matrix4f &model,
 	model = model * translate(mCamera.modelTranslation);
 }
 
-
+//void Viewer::LoadTexture(const char* filename)
+//{
+//	std::vector<unsigned char> image; //the raw pixels
+//	unsigned width, height;
+//
+//	//decode
+//	unsigned error = lodepng::decode(image, width, height, filename);
+//
+//	//if there's an error, display it
+//	if (error) std::cout << "decoder error " << error << ": " << lodepng_error_text(error) << std::endl;
+//
+//	glEnable(GL_TEXTURE_2D);
+//	glGenTextures(1, &texture[0]);
+//	glBindTexture(GL_TEXTURE_2D, texture[0]);
+//	glTexImage2D(GL_TEXTURE_2D, 0, 4, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, &image[0]);
+//	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+//	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+//	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+//	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+//
+//	//glBindTexture(GL_TEXTURE_2D, 0);
+//	//glDisable(GL_TEXTURE_2D);
+//}

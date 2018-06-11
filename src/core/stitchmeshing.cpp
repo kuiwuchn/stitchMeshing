@@ -1,5 +1,26 @@
 #include "../hierarchy.h"
 
+// https://stackoverflow.com/questions/2328339/how-to-generate-n-different-colors-for-any-natural-number-n
+int indexcolors[128] = {
+	0x000000, 0xFFFF00, 0x1CE6FF, 0xFF34FF, 0xFF4A46, 0x008941, 0x006FA6, 0xA30059,
+	0xFFDBE5, 0x7A4900, 0x0000A6, 0x63FFAC, 0xB79762, 0x004D43, 0x8FB0FF, 0x997D87,
+	0x5A0007, 0x809693, 0xFEFFE6, 0x1B4400, 0x4FC601, 0x3B5DFF, 0x4A3B53, 0xFF2F80,
+	0x61615A, 0xBA0900, 0x6B7900, 0x00C2A0, 0xFFAA92, 0xFF90C9, 0xB903AA, 0xD16100,
+	0xDDEFFF, 0x000035, 0x7B4F4B, 0xA1C299, 0x300018, 0x0AA6D8, 0x013349, 0x00846F,
+	0x372101, 0xFFB500, 0xC2FFED, 0xA079BF, 0xCC0744, 0xC0B9B2, 0xC2FF99, 0x001E09,
+	0x00489C, 0x6F0062, 0x0CBD66, 0xEEC3FF, 0x456D75, 0xB77B68, 0x7A87A1, 0x788D66,
+	0x885578, 0xFAD09F, 0xFF8A9A, 0xD157A0, 0xBEC459, 0x456648, 0x0086ED, 0x886F4C,
+
+	0x34362D, 0xB4A8BD, 0x00A6AA, 0x452C2C, 0x636375, 0xA3C8C9, 0xFF913F, 0x938A81,
+	0x575329, 0x00FECF, 0xB05B6F, 0x8CD0FF, 0x3B9700, 0x04F757, 0xC8A1A1, 0x1E6E00,
+	0x7900D7, 0xA77500, 0x6367A9, 0xA05837, 0x6B002C, 0x772600, 0xD790FF, 0x9B9700,
+	0x549E79, 0xFFF69F, 0x201625, 0x72418F, 0xBC23FF, 0x99ADC0, 0x3A2465, 0x922329,
+	0x5B4534, 0xFDE8DC, 0x404E55, 0x0089A3, 0xCB7E98, 0xA4E804, 0x324E72, 0x6A3A4C,
+	0x83AB58, 0x001C1E, 0xD1F7CE, 0x004B28, 0xC8D0F6, 0xA3A489, 0x806C66, 0x222800,
+	0xBF5650, 0xE83000, 0x66796D, 0xDA007C, 0xFF1A59, 0x8ADBB4, 0x1E0200, 0x5B4E51,
+	0xC895C5, 0x320033, 0xFF6832, 0x66E1D3, 0xCFCDAC, 0xD0AC94, 0x7ED379, 0x012C58
+};
+
 void MultiResolutionHierarchy::convert2Poly()
 {
 	std::cout << "Convert 2 poly...";
@@ -194,11 +215,21 @@ void MultiResolutionHierarchy::stitchMeshing()
 #endif
 }
 
+cyPoint3f colorConverter(int hexValue)
+{
+	cyPoint3f rgbColor;
+	rgbColor.x = ((hexValue >> 16) & 0xFF) / 255.0f;  // Extract the RR byte
+	rgbColor.y = ((hexValue >> 8) & 0xFF) / 255.0f;   // Extract the GG byte
+	rgbColor.z = ((hexValue) & 0xFF) / 255.0f;        // Extract the BB byte
+
+	return rgbColor;
+}
+
 void MultiResolutionHierarchy::convert2Rend()
 {
 	std::cout << "Convert 2 render buffer...";
 
-#if 1
+#if 0
 	mV_StMesh_rend.resize(3, mCleanPoly->numVertices());
 	for (int vi = 0; vi < mCleanPoly->numVertices(); vi++)
 	{
@@ -267,7 +298,233 @@ void MultiResolutionHierarchy::convert2Rend()
 			mF_StMesh_rend(2, c++) = viList[4];
 		}
 	}
+#else
+	int triNum = 0, quadNum = 0, penNum = 0;
+	for (int fi = 0; fi < mCleanPoly->numFaces(); fi++) {
+		HE_Face* f = mCleanPoly->face(fi);
+		if (f->hole()) continue;
 
+		if (f->NumHalfEdge() == 3) triNum++;
+		else if (f->NumHalfEdge() == 4) quadNum++;
+		else if (f->NumHalfEdge() == 5) penNum++;
+	}
+
+	int totalVNum = triNum * 3 + quadNum * 4 + penNum * 5;
+
+	mV_StMesh_rend.resize(3, totalVNum);
+	mC_StMesh_rend.resize(3, totalVNum);
+	mT_StMesh_rend.resize(2, totalVNum);
+	//for (int vi = 0; vi < mCleanPoly->numVertices(); vi++)
+	//{
+	//	mV_StMesh_rend(0, vi) = mCleanPoly->vertex(vi)->position().x;
+	//	mV_StMesh_rend(1, vi) = mCleanPoly->vertex(vi)->position().y;
+	//	mV_StMesh_rend(2, vi) = mCleanPoly->vertex(vi)->position().z;
+	//}
+	int vi = 0;
+	for (int j = 0; j < (int)mCleanDual->_groupFaceIdx.size(); j++)
+	{
+		cyPoint3f c = colorConverter(indexcolors[j % 128]);
+		for (int i = 0; i < (int)mCleanDual->_groupFaceIdx[j].size(); i++)
+		{
+			const HE_Face* f = mCleanPoly->face(mCleanDual->_groupFaceIdx[j][i]);
+			if (f->hole())
+				continue;
+
+			HE_Face::const_edge_circulator e = f->begin();
+			HE_Face::const_edge_circulator sentinel = e;
+
+			int idx = 0;
+			if (f->TestFlag(VEF_FLAG_QUAD))
+			{
+				do
+				{
+					const HE_Vertex* v = (*e)->dst();
+					switch (idx)
+					{
+					case 0:
+						mT_StMesh_rend(0, vi) = 1;
+						mT_StMesh_rend(1, vi) = 0;
+						break;
+					case 1:
+						mT_StMesh_rend(0, vi) = 1;
+						mT_StMesh_rend(1, vi) = 1;
+						break;
+					case 2:
+						mT_StMesh_rend(0, vi) = 0;
+						mT_StMesh_rend(1, vi) = 1;
+						break;
+					case 3:
+						mT_StMesh_rend(0, vi) = 0;
+						mT_StMesh_rend(1, vi) = 0;
+						break;
+					default: break;
+					}
+					mV_StMesh_rend(0, vi) = v->position().x;
+					mV_StMesh_rend(1, vi) = v->position().y;
+					mV_StMesh_rend(2, vi) = v->position().z;
+
+					mC_StMesh_rend(0, vi) = c.x;
+					mC_StMesh_rend(1, vi) = c.y;
+					mC_StMesh_rend(2, vi++) = c.z;
+					++e; ++idx;
+				} while (e != sentinel);
+			}
+			else if (f->TestFlag(VEF_FLAG_INC))
+			{
+				do
+				{
+					const HE_Vertex* v = (*e)->dst();
+					switch (idx)
+					{
+					case 0:
+						mT_StMesh_rend(0, vi) = 1;
+						mT_StMesh_rend(1, vi) = 0;
+						break;
+					case 1:
+						mT_StMesh_rend(0, vi) = 1;
+						mT_StMesh_rend(1, vi) = 1;
+						break;
+					case 2:
+						mT_StMesh_rend(0, vi) = 0;
+						mT_StMesh_rend(1, vi) = 1;
+						break;
+					case 3:
+						mT_StMesh_rend(0, vi) = 0;
+						mT_StMesh_rend(1, vi) = 0;
+						break;
+					case 4:
+						mT_StMesh_rend(0, vi) = 0.5;
+						mT_StMesh_rend(1, vi) = 0;
+						break;
+					default: break;
+					}
+					mV_StMesh_rend(0, vi) = v->position().x;
+					mV_StMesh_rend(1, vi) = v->position().y;
+					mV_StMesh_rend(2, vi) = v->position().z;
+					mC_StMesh_rend(0, vi) = c.x;
+					mC_StMesh_rend(1, vi) = c.y;
+					mC_StMesh_rend(2, vi++) = c.z;
+					++e; ++idx;
+				} while (e != sentinel);
+			}
+			else if (f->TestFlag(VEF_FLAG_DEC))
+			{
+				do
+				{
+					const HE_Vertex* v = (*e)->dst();
+					switch (idx)
+					{
+					case 0:
+						mT_StMesh_rend(0, vi) = 1;
+						mT_StMesh_rend(1, vi) = 0;
+						break;
+					case 1:
+						mT_StMesh_rend(0, vi) = 1;
+						mT_StMesh_rend(1, vi) = 1;
+						break;
+					case 2:
+						mT_StMesh_rend(0, vi) = 0.5;
+						mT_StMesh_rend(1, vi) = 1;
+						break;
+					case 3:
+						mT_StMesh_rend(0, vi) = 0;
+						mT_StMesh_rend(1, vi) = 1;
+						break;
+					case 4:
+						mT_StMesh_rend(0, vi) = 0;
+						mT_StMesh_rend(1, vi) = 0;
+						break;
+					default: break;
+					}
+					mV_StMesh_rend(0, vi) = v->position().x;
+					mV_StMesh_rend(1, vi) = v->position().y;
+					mV_StMesh_rend(2, vi) = v->position().z;
+					mC_StMesh_rend(0, vi) = c.x;
+					mC_StMesh_rend(1, vi) = c.y;
+					mC_StMesh_rend(2, vi++) = c.z;
+					++e; ++idx;
+				} while (e != sentinel);
+			}
+			else if (f->TestFlag(VEF_FLAG_QUAD_SHORTROW_L) ||
+				f->TestFlag(VEF_FLAG_QUAD_SHORTROW_R))
+			{
+				do
+				{
+					const HE_Vertex* v = (*e)->dst();
+					mT_StMesh_rend(0, vi) = 0;
+					mT_StMesh_rend(1, vi) = 0;
+					mV_StMesh_rend(0, vi) = v->position().x;
+					mV_StMesh_rend(1, vi) = v->position().y;
+					mV_StMesh_rend(2, vi) = v->position().z;
+					mC_StMesh_rend(0, vi) = c.x;
+					mC_StMesh_rend(1, vi) = c.y;
+					mC_StMesh_rend(2, vi++) = c.z;
+					++e;
+				} while (e != sentinel);
+			}
+			else {
+				std::cout << "ERROR!\n";
+			}
+		}
+	}
+
+	int triTotalNum = triNum + 2 * quadNum + 3 * penNum;
+
+	mF_StMesh_rend.resize(3, triTotalNum);
+
+	int c = 0;
+	vi = 0;
+	for (int j = 0; j < (int)mCleanDual->_groupFaceIdx.size(); j++)
+	{
+		for (int i = 0; i < (int)mCleanDual->_groupFaceIdx[j].size(); i++)
+		{
+			const HE_Face* f = mCleanPoly->face(mCleanDual->_groupFaceIdx[j][i]);
+
+			if (f->hole()) continue;
+
+			std::vector<int> viList; viList.clear();
+			HE_Face::const_edge_circulator e = f->begin();
+			HE_Face::const_edge_circulator sentinel = e;
+			do
+			{
+				viList.push_back(vi);
+				vi++;
+				++e;
+			} while (e != sentinel);
+
+			if (f->NumHalfEdge() == 3)
+			{
+				mF_StMesh_rend(0, c) = viList[0];
+				mF_StMesh_rend(1, c) = viList[1];
+				mF_StMesh_rend(2, c++) = viList[2];
+			}
+			else if (f->NumHalfEdge() == 4)
+			{
+				mF_StMesh_rend(0, c) = viList[0];
+				mF_StMesh_rend(1, c) = viList[1];
+				mF_StMesh_rend(2, c++) = viList[3];
+
+				mF_StMesh_rend(0, c) = viList[1];
+				mF_StMesh_rend(1, c) = viList[2];
+				mF_StMesh_rend(2, c++) = viList[3];
+			}
+			else if (f->NumHalfEdge() == 5)
+			{
+				mF_StMesh_rend(0, c) = viList[0];
+				mF_StMesh_rend(1, c) = viList[1];
+				mF_StMesh_rend(2, c++) = viList[4];
+
+				mF_StMesh_rend(0, c) = viList[1];
+				mF_StMesh_rend(1, c) = viList[2];
+				mF_StMesh_rend(2, c++) = viList[4];
+
+				mF_StMesh_rend(0, c) = viList[2];
+				mF_StMesh_rend(1, c) = viList[3];
+				mF_StMesh_rend(2, c++) = viList[4];
+			}
+		}
+	}
+#endif
 	mE_StMesh_rend.resize(6, mCleanPoly->numHalfEdges() * 2);
 
 	for (int ei = 0; ei < mCleanPoly->numHalfEdges(); ei++)
@@ -288,55 +545,6 @@ void MultiResolutionHierarchy::convert2Rend()
 		mE_StMesh_rend(5, ei * 2 + 1) = 0;
 	}
 
-#else
-	mV_StMesh_rend = mV_tag;
-
-	int triNum = 0, quadNum = 0, penNum = 0;
-	for (int i = 0; i < F_tag.size(); i++) {
-		if (F_tag[i].size() == 3) triNum++;
-		else if (F_tag[i].size() == 4) quadNum++;
-		else if (F_tag[i].size() == 5) penNum++;
-	}
-
-	int triTotalNum = triNum + 2 * quadNum + 3 * penNum;
-
-	mF_StMesh_rend.resize(3, triTotalNum);
-
-	int c = 0;
-	for (int i = 0; i < F_tag.size(); i++)
-	{
-		if (F_tag[i].size() == 3)
-		{
-			mF_StMesh_rend(0, c) = F_tag[i][0];
-			mF_StMesh_rend(1, c) = F_tag[i][1];
-			mF_StMesh_rend(2, c++) = F_tag[i][2];
-		}
-		else if (F_tag[i].size() == 4)
-		{
-			mF_StMesh_rend(0, c) = F_tag[i][0];
-			mF_StMesh_rend(1, c) = F_tag[i][1];
-			mF_StMesh_rend(2, c++) = F_tag[i][3];
-
-			mF_StMesh_rend(0, c) = F_tag[i][1];
-			mF_StMesh_rend(1, c) = F_tag[i][2];
-			mF_StMesh_rend(2, c++) = F_tag[i][3];
-		}
-		else if (F_tag[i].size() == 5)
-		{
-			mF_StMesh_rend(0, c) = F_tag[i][0];
-			mF_StMesh_rend(1, c) = F_tag[i][1];
-			mF_StMesh_rend(2, c++) = F_tag[i][4];
-
-			mF_StMesh_rend(0, c) = F_tag[i][1];
-			mF_StMesh_rend(1, c) = F_tag[i][2];
-			mF_StMesh_rend(2, c++) = F_tag[i][4];
-
-			mF_StMesh_rend(0, c) = F_tag[i][2];
-			mF_StMesh_rend(1, c) = F_tag[i][3];
-			mF_StMesh_rend(2, c++) = F_tag[i][4];
-		}
-	}
-#endif
 	std::cout << "Done\n";
 }
 
