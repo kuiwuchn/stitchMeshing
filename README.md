@@ -26,7 +26,7 @@ git clone https://github.com/kuiwuchn/stitchMeshing --recursive
 
 You need to install [Gurobi](http://www.gurobi.com/) before compiling the code.
 
-Set include directory and lib directory accordingly for gurobi in CMakeLists.txt
+Set include directory and lib directory accordingly for gurobi in CMakeLists.txt line 110 and 114
 
 ```
 cd stitchMeshing
@@ -35,3 +35,18 @@ cd build
 cmake ..
 make
 ```
+Note that the CMakeLists.txt is only tested with Visual Studio 2015.
+
+## Usage
+
+- Open stitch-meshing.exe in build/release
+- Open mesh and choose your model
+- Surface
+- Rosy
+- Posy
+- Extract 
+- Label
+- Align
+- Stitch Meshing
+
+
