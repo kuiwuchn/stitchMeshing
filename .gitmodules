@@ -8,5 +8,5 @@
 	branch = master
 [submodule "ext/nanogui"]
 	path = ext/nanogui
-	url = https://github.com/gaoxifeng/nanogui/tree/1c7ee2325ee585f1540ecd7d6ab65fe311870a7b
+	url = https://github.com/gaoxifeng/nanogui
 	branch = master
