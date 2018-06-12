@@ -295,8 +295,8 @@ Viewer::Viewer(std::string &filename, bool fullscreen)
 	mExampleImages.insert(mExampleImages.begin(),
 		std::make_pair(nvgImageIcon(ctx, loadmesh), ""));
 
-	mArrowTexture.load("../resources/arrow.png");
-	mUVTexture.load("../resources/uvTexture.png");
+	mArrowTexture.load("arrow.png");
+	mUVTexture.load("uvTexture.png");
 
 	/* Initialize user interface */
     Window *window = new Window(this, "");

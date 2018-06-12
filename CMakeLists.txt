@@ -1,5 +1,5 @@
 cmake_minimum_required (VERSION 2.8.3)
-project(stitchable-meshing)
+project(stitch-meshing)
 
 if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
   message(STATUS "Setting build type to 'Release' as none was specified.")
@@ -10,7 +10,7 @@ endif()
 string(TOUPPER "${CMAKE_BUILD_TYPE}" U_CMAKE_BUILD_TYPE)
 
 if(NOT IS_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/ext/nanogui/ext/glfw")
-  message(FATAL_ERROR "The stitchable-meshing dependency repositories (NanoGUI, GLFW, etc.) are missing! "
+  message(FATAL_ERROR "The stitch-meshing dependency repositories (NanoGUI, GLFW, etc.) are missing! "
     "You probably did not clone the project with --recursive. It is possible to recover "
     "by calling \"git submodule update --init --recursive\"")
 endif()
@@ -106,11 +106,19 @@ include_directories(
   ${CMAKE_CURRENT_SOURCE_DIR}/ext/rply
   # Resource file
   ${CMAKE_CURRENT_BINARY_DIR}
+  # Gurobi
+  "D:/Libs/gurobi752/win64/include"
+)
+
+link_directories(
+	"D:/Libs/gurobi752/win64/lib"
 )
 
 # Run bin2c on resource files
 set(PNG_FILES
   ${CMAKE_CURRENT_SOURCE_DIR}/resources/loadmesh.png
+  ${CMAKE_CURRENT_SOURCE_DIR}/resources/arrow.png
+  ${CMAKE_CURRENT_SOURCE_DIR}/resources/uvTexture.png
 )
 
 file(GLOB FRAG_FILES "${CMAKE_CURRENT_SOURCE_DIR}/resources/*.frag")
@@ -136,8 +144,19 @@ elseif(WIN32)
   set(EXTRA_SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/resources/im.rc")
 endif()
 
-add_library(stitchable-meshing_lib
-  src/meshio.cpp src/meshio.h
+add_library(stitch-meshing_lib
+	src/core/cyPoint.h
+	src/core/dual.cpp src/core/dual.h
+	src/core/HE_Face.cpp src/core/HE_Face.h
+	src/core/HE_Halfedge.cpp src/core/HE_Halfedge.h
+	src/core/HE_Polyhedron.cpp src/core/HE_Polyhedron.h
+	src/core/HE_Vertex.cpp src/core/HE_Vertex.h
+	src/core/mesh_io.cpp
+	src/core/polyhedron_iterators.h
+	src/core/stitchmeshing.cpp
+	src/core/HE_Vertex.cpp src/core/HE_Vertex.h
+	src/core/util.cpp src/core/util.h
+	src/meshio.cpp src/meshio.h
   src/viewer.cpp src/viewer.h
   src/aabb.h
   src/adjacency.h
@@ -159,13 +178,13 @@ add_library(stitchable-meshing_lib
   im_resources.cpp
 )
 
-add_executable(stitchable-meshing MACOSX_BUNDLE
+add_executable(stitch-meshing MACOSX_BUNDLE
   src/main.cpp
 )
 
-target_link_libraries(stitchable-meshing stitchable-meshing_lib tbb_static nanogui ${NANOGUI_EXTRA_LIBS})
+target_link_libraries(stitch-meshing stitch-meshing_lib tbb_static nanogui gurobi75 gurobi_c++mt2015 gurobi_c++mtd2015 ${NANOGUI_EXTRA_LIBS})
 
-set_target_properties(stitchable-meshing PROPERTIES OUTPUT_NAME "stitchable-meshing")
+set_target_properties(stitch-meshing PROPERTIES OUTPUT_NAME "stitch-meshing")
 
 if (WIN32)
   # Quench some warnings on MSVC
@@ -174,17 +193,35 @@ if (WIN32)
   endif()
 elseif (APPLE)
   # Build an application bundle on OSX
-  set_target_properties(stitchable-meshing PROPERTIES MACOSX_BUNDLE_BUNDLE_NAME "stitchable-meshing")
-  set_target_properties(stitchable-meshing PROPERTIES MACOSX_BUNDLE_BUNDLE_GUI_IDENTIFIER "com.im.stitchable-meshing")
-  set_target_properties(stitchable-meshing PROPERTIES MACOSX_BUNDLE_ICON_FILE im.icns)
-  set_target_properties(stitchable-meshing PROPERTIES MACOSX_BUNDLE_INFO_PLIST ${CMAKE_CURRENT_SOURCE_DIR}/resources/MacOSXBundleInfo.plist.in)
+  set_target_properties(stitch-meshing PROPERTIES MACOSX_BUNDLE_BUNDLE_NAME "stitch-meshing")
+  set_target_properties(stitch-meshing PROPERTIES MACOSX_BUNDLE_BUNDLE_GUI_IDENTIFIER "com.im.stitch-meshing")
+  set_target_properties(stitch-meshing PROPERTIES MACOSX_BUNDLE_ICON_FILE im.icns)
+  set_target_properties(stitch-meshing PROPERTIES MACOSX_BUNDLE_INFO_PLIST ${CMAKE_CURRENT_SOURCE_DIR}/resources/MacOSXBundleInfo.plist.in)
   set_source_files_properties(resources/im.icns PROPERTIES MACOSX_PACKAGE_LOCATION "Resources")
 else()
   # Insulate from a few types of ABI changes by statically linking against libgcc and libstdc++
-  set_target_properties(stitchable-meshing PROPERTIES LINK_FLAGS "-static-libgcc")
-  #set_target_properties(stitchable-meshing PROPERTIES LINK_FLAGS "-static-libgcc -static-libstdc++")
+  set_target_properties(stitch-meshing PROPERTIES LINK_FLAGS "-static-libgcc")
+  #set_target_properties(stitch-meshing PROPERTIES LINK_FLAGS "-static-libgcc -static-libstdc++")
 endif()
 
 if (UNIX AND NOT ${U_CMAKE_BUILD_TYPE} MATCHES DEBUG)
-  add_custom_command(TARGET stitchable-meshing POST_BUILD COMMAND strip $<TARGET_FILE:stitchable-meshing>)
+  add_custom_command(TARGET stitch-meshing POST_BUILD COMMAND strip $<TARGET_FILE:stitch-meshing>)
+endif()
+
+if (WIN32)
+	# Quench some warnings on MSVC
+	if (MSVC)
+		file(COPY ${CMAKE_CURRENT_SOURCE_DIR}/resources/arrow.png
+			DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
+		file(COPY ${CMAKE_CURRENT_SOURCE_DIR}/resources/uvTexture.png
+			DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
+		file(COPY ${CMAKE_CURRENT_SOURCE_DIR}/resources/arrow.png
+			DESTINATION ${CMAKE_CURRENT_BINARY_DIR}/release)
+		file(COPY ${CMAKE_CURRENT_SOURCE_DIR}/resources/uvTexture.png
+			DESTINATION ${CMAKE_CURRENT_BINARY_DIR}/release)
+		file(COPY ${CMAKE_CURRENT_SOURCE_DIR}/resources/arrow.png
+			DESTINATION ${CMAKE_CURRENT_BINARY_DIR}/debug)
+		file(COPY ${CMAKE_CURRENT_SOURCE_DIR}/resources/uvTexture.png
+			DESTINATION ${CMAKE_CURRENT_BINARY_DIR}/debug)
+	endif()
 endif()
