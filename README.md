@@ -6,7 +6,7 @@
 [Daniele Panozzo](https://cs.nyu.edu/~panozzo), 
 [Cem Yuksel](http://www.cemyuksel.com/)
 
-*Siggraph 2018*
+*ACM Transactions on Graphics (Proceedings of SIGGRAPH 2018), 37, 4, 2018*
 
 ## Abstract
 
@@ -42,6 +42,7 @@ Note that the CMakeLists.txt is only tested with Visual Studio 2015.
 - Open stitch-meshing.exe in build/release
 - Open mesh and choose your model
 - Surface
+![Alt text]https://github.com/kuiwuchn/stitchMeshing/blob/master/screenshots/screenshot_surface.png
 - Rosy
 - Posy
 - Extract 
