@@ -40,7 +40,7 @@ Note that the CMakeLists.txt is only tested with Visual Studio 2015.
 ## Usage
 
 1. Open stitch-meshing.exe in build/release
-2. *Open mesh* and choose your model
+2. **Open mesh** and choose your model
 3. Surface
 
 ![Alt text](screenshots/screenshot_surface.png)
@@ -72,3 +72,12 @@ Note that the CMakeLists.txt is only tested with Visual Studio 2015.
 10. Output
 
 The remeshing and stitch meshing results will be saved in the same folder as the input model is.
+
+## Dependencies
+- [NanoGUI](https://github.com/wjakob/nanogui)
+- [PCG32](http://www.pcg-random.org/)
+- [Intel(R) Threading Building Blocks](https://www.threadingbuildingblocks.org/)
+- [Gurobi](http://www.gurobi.com/)
+- [Half Edge Library*](http://halfedgelib.sourceforge.net)
+
+* is included library
