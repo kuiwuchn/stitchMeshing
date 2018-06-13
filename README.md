@@ -19,22 +19,12 @@ We introduce the first fully automatic pipeline to convert arbitrary 3D shapes i
 ## Installation
 - Clone the repository into your local machine:
 
-```bash
-git clone https://github.com/kuiwuchn/stitchMeshing --recursive
-```
-- Compile the code using cmake 
+- Compile the code using CmakeGUI 
 
 You need to install [Gurobi](http://www.gurobi.com/) before compiling the code.
 
-Set include directory and lib directory accordingly for gurobi in CMakeLists.txt line 110 and 114
-
-```
-cd stitchMeshing
-mkdir build
-cd build
-cmake ..
-make
-```
+Set include directory and lib directory accordingly for gurobi in CMakeLists.txt line 110 and 114.
+Use CmakeGUI with the correct directory for source code and build.
 Note that the CMakeLists.txt is only tested with Visual Studio 2015.
 
 ## Usage
@@ -73,7 +63,7 @@ Note that the CMakeLists.txt is only tested with Visual Studio 2015.
 
 The remeshing and stitch meshing results will be saved in the same folder as the input model is.
 
-## Dependencies
+## External Libraries 
 - [NanoGUI](https://github.com/wjakob/nanogui)
 - [PCG32](http://www.pcg-random.org/)
 - [Intel(R) Threading Building Blocks](https://www.threadingbuildingblocks.org/)
