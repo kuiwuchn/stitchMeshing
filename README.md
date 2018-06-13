@@ -43,14 +43,30 @@ Note that the CMakeLists.txt is only tested with Visual Studio 2015.
 - Open mesh and choose your model
 - Surface
 
-<img align="left" width="400" src="screenshots/screenshot_surface.png">
-
+![Alt text](screenshots/screenshot_surface.png)
 
 - Rosy
+
+![Alt text](screenshots/screenshot_rosy.png)
+
 - Posy
+
+![Alt text](screenshots/screenshot_posy.png)
+
 - Extract 
+
+![Alt text](screenshots/screenshot_extract.png)
+
 - Label
+
+![Alt text](screenshots/screenshot_label.png)
+
 - Align
+
+![Alt text](screenshots/screenshot_align.png)
+
 - Stitch Meshing
+
+![Alt text](screenshots/screenshot_stitchmeshing.png)
 
 
