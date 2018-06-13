@@ -75,9 +75,13 @@ The remeshing and stitch meshing results will be saved in the same folder as the
 
 \* are included libraries
 
+## License
+
+Stitch Meshing is published under the Lesser GNU Public License (LGPL). That means that you can link it from a program with whatever license you choose. Also, you can modify and redistribute the library, but you must provide the source code for the modified version.
+
 ## BibTex 
 
-Please cite the following paper if it helps.
+Please cite the following paper if it helps. 
 
 ```
 @article{Wu:2018:stitchmeshing
