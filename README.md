@@ -43,7 +43,7 @@ Note that the CMakeLists.txt is only tested with Visual Studio 2015.
 - Open mesh and choose your model
 - Surface
 
-![Alt text]https://github.com/kuiwuchn/stitchMeshing/blob/master/screenshots/screenshot_surface.png
+![Alt text](screenshots/screenshot_surface.png)
 
 - Rosy
 - Posy
