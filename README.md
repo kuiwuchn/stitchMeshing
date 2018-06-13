@@ -75,7 +75,7 @@ The remeshing and stitch meshing results will be saved in the same folder as the
 
 \* are included libraries
 
-##BibTex 
+## BibTex 
 
 Please cite the following paper if it helps.
 
