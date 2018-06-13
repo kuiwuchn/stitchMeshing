@@ -80,4 +80,4 @@ The remeshing and stitch meshing results will be saved in the same folder as the
 - [Gurobi](http://www.gurobi.com/)
 - [Half Edge Library*](http://halfedgelib.sourceforge.net)
 
-* is included library
+\* is included library
