@@ -39,34 +39,36 @@ Note that the CMakeLists.txt is only tested with Visual Studio 2015.
 
 ## Usage
 
-- Open stitch-meshing.exe in build/release
-- Open mesh and choose your model
-- Surface
+1. Open stitch-meshing.exe in build/release
+2. *Open mesh* and choose your model
+3. Surface
 
 ![Alt text](screenshots/screenshot_surface.png)
 
-- Rosy
+4. Rosy
 
 ![Alt text](screenshots/screenshot_rosy.png)
 
-- Posy
+5. Posy
 
 ![Alt text](screenshots/screenshot_posy.png)
 
-- Extract 
+6. Extract 
 
 ![Alt text](screenshots/screenshot_extract.png)
 
-- Label
+7. Label
 
 ![Alt text](screenshots/screenshot_label.png)
 
-- Align
+8. Align
 
 ![Alt text](screenshots/screenshot_align.png)
 
-- Stitch Meshing
+9. Stitch Meshing
 
 ![Alt text](screenshots/screenshot_stitchmeshing.png)
 
+10. Output
 
+The remeshing and stitch meshing results will be saved in the same folder as the input model is.
