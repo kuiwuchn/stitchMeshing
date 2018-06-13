@@ -43,7 +43,8 @@ Note that the CMakeLists.txt is only tested with Visual Studio 2015.
 - Open mesh and choose your model
 - Surface
 
-<img align="left" width="100" src="screenshots/screenshot_surface.png">
+<img align="left" width="400" src="screenshots/screenshot_surface.png">
+
 
 - Rosy
 - Posy
