@@ -23,8 +23,8 @@ We introduce the first fully automatic pipeline to convert arbitrary 3D shapes i
 
 You need to install [Gurobi](http://www.gurobi.com/) before compiling the code.
 
-Set include directory and lib directory accordingly for gurobi in CMakeLists.txt line 110 and 114.
-Use CmakeGUI with the correct directory for source code and build.
+-Set include directory and lib directory accordingly for gurobi in CMakeLists.txt line 110 and 114.
+-Use CmakeGUI with the correct directory for source code and build.
 Note that the CMakeLists.txt is only tested with Visual Studio 2015.
 
 ## Usage
