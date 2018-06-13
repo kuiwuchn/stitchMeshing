@@ -71,5 +71,6 @@ The remeshing and stitch meshing results will be saved in the same folder as the
 - [Intel(R) Threading Building Blocks](https://www.threadingbuildingblocks.org/)
 - [Gurobi](http://www.gurobi.com/)
 - [Half Edge Library*](http://halfedgelib.sourceforge.net)
+- [RPly library](http://www.impa.br/~diego/software/rply)
 
-\* is included library
+\* are included libraries
