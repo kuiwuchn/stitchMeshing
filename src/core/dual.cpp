@@ -1199,7 +1199,7 @@ void DualGraph::loadGurobiResult(std::string pFilename)
 		for (int i = 0; i < outdegree; i++, e++)
 		{
 			HE_HalfEdge* he = _poly->halfedge((*e)->index());
-			if (gurobiResult[offset + i])
+			if (!gurobiResult[offset + i])
 				he->SetFlag(EFLAG_HORIZONTAL);
 			else 
 				he->SetFlag(EFLAG_VERTICAL);

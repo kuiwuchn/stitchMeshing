@@ -9,11 +9,11 @@
 #include "tri_tri_intersection.h"
 
 MultiResolutionHierarchy::MultiResolutionHierarchy() {
-    mV = { MatrixXf::Zero(3, 1) };
-    mN = { MatrixXf::Zero(3, 1) };
-    mO = { MatrixXf::Zero(3, 1) };
-    mQ = { MatrixXf::Zero(4, 1) };
-    mBVH = nullptr;
+	mV = { MatrixXf::Zero(3, 1) };
+	mN = { MatrixXf::Zero(3, 1) };
+	mO = { MatrixXf::Zero(3, 1) };
+	mQ = { MatrixXf::Zero(4, 1) };
+	mBVH = nullptr;
 	ratio_scale = 3.0;
 	tElen_ratio = 1.0;
 	re_color = true;
@@ -21,12 +21,12 @@ MultiResolutionHierarchy::MultiResolutionHierarchy() {
 }
 
 bool MultiResolutionHierarchy::load(const std::string &filename) {
-    std::lock_guard<ordered_lock> lock(mMutex);
+	std::lock_guard<ordered_lock> lock(mMutex);
 
-    mV.resize(1);
+	mV.resize(1);
 	mV[0] = MatrixXf::Zero(3, 1);
 	mF = MatrixXu::Zero(3, 1);
-	
+
 	try {
 		load_obj(filename, mF, mV[0]);
 	}
@@ -35,16 +35,6 @@ bool MultiResolutionHierarchy::load(const std::string &filename) {
 		return false;
 	}
 
-	string path = filename + "_Rosy.txt";
-	if (load_Rosy(QoF, path)) {
-		Q_FROM_FILE = true;
-	}
-	else {
-		std::cout << "no feature file, detect based on angle" << std::endl;
-		Q_FROM_FILE = false;
-	}
-
-
 	mV.resize(1);
 	mAABB = AABB(
 		mV[0].rowwise().minCoeff(),
@@ -52,10 +42,10 @@ bool MultiResolutionHierarchy::load(const std::string &filename) {
 	);
 
 	ms = compute_mesh_stats(mF, mV[0]);
-	diagonalLen = (mAABB.max - mAABB.min).norm();
+	diagonalLen = 3 * (mAABB.max - mAABB.min).norm() / 100;
 	ratio_scale = ms.mAverageEdgeLength * 3.5 / diagonalLen;
 
-    return true;
+	return true;
 }
 MeshStats MultiResolutionHierarchy::compute_mesh_stats(const MatrixXu &F_, const MatrixXf &V_, bool deterministic)
 {
@@ -67,7 +57,7 @@ MeshStats MultiResolutionHierarchy::compute_mesh_stats(const MatrixXu &F_, const
 			Vector3f v[3] = { V_.col(F_(0, f)), V_.col(F_(1, f)), V_.col(F_(2, f)) };
 			Vector3f face_center = Vector3f::Zero();
 
-			for (int i = 0; i<3; ++i) {
+			for (int i = 0; i < 3; ++i) {
 				Float edge_length = (v[i] - v[i == 2 ? 0 : (i + 1)]).norm();
 				stats.mAverageEdgeLength += edge_length;
 				stats.mMaximumEdgeLength = std::max(stats.mMaximumEdgeLength, (double)edge_length);
@@ -105,6 +95,8 @@ MeshStats MultiResolutionHierarchy::compute_mesh_stats(const MatrixXu &F_, const
 	stats.mAverageEdgeLength /= F_.cols() * 3;
 	stats.mWeightedCenter /= stats.mSurfaceArea;
 
+	//std::cout << stats.mAverageEdgeLength << std::endl;
+
 	return stats;
 }
 void MultiResolutionHierarchy::build() {
@@ -114,8 +106,7 @@ void MultiResolutionHierarchy::build() {
 	if (mBVH)
 		delete mBVH;
 
-	timer.beginStage("Computing laplacian matrix, face and vertex normals");
-
+	timer.beginStage("Computing face and vertex normals");
 	mN.resize(1);
 	mC.resize(1);
 	nV_boundary_flag.resize(1);
@@ -124,7 +115,7 @@ void MultiResolutionHierarchy::build() {
 	mNF.resize(3, mF.cols()); mCF.resize(3, mF.cols());
 	VectorXi count(mV[0].cols());
 	count.setZero();
-	for (uint32_t i = 0; i<mF.cols(); ++i) {
+	for (uint32_t i = 0; i < mF.cols(); ++i) {
 		uint32_t i0 = mF(0, i), i1 = mF(1, i), i2 = mF(2, i);
 		Vector3f v0 = mV[0].col(i0), v1 = mV[0].col(i1), v2 = mV[0].col(i2);
 		Vector3f n = (v1 - v0).cross(v2 - v0).normalized();
@@ -134,7 +125,7 @@ void MultiResolutionHierarchy::build() {
 		count[i0]++; count[i1]++; count[i2]++;
 	}
 
-	for (uint32_t i = 0; i<mN[0].cols(); ++i) {
+	for (uint32_t i = 0; i < mN[0].cols(); ++i) {
 		if (mN[0].col(i) != Vector3f::Zero()) {
 			Vector3f d1 = mN[0].col(i) / count[i],
 				d2 = mN[0].col(i).normalized();
@@ -167,23 +158,6 @@ void MultiResolutionHierarchy::build() {
 		}
 	}
 
-	timer.endStage();
-
-	struct WeightedEdge {
-		WeightedEdge(uint32_t _i0, uint32_t _i1, Float weight)
-			: weight(weight), i0(_i0), i1(_i1) {
-			if (i0 > i1)
-				std::swap(i0, i1);
-		}
-
-		bool operator<(const WeightedEdge &e) const {
-			return std::tie(weight, i0, i1) < std::tie(e.weight, e.i0, e.i1);
-		}
-
-		Float weight;
-		uint32_t i0, i1;
-	};
-	//laplacian matrix
 	std::vector<std::pair<uint32_t, uint32_t>> adj;
 	adj.reserve(mF.cols() * 6);
 	for (uint32_t f = 0; f < mF.cols(); ++f) {
@@ -210,9 +184,24 @@ void MultiResolutionHierarchy::build() {
 		mL[0].coeffRef(i, i) = -sum;
 	}
 	mL[0].makeCompressed();
+	timer.endStage();
+
+	struct WeightedEdge {
+		WeightedEdge(uint32_t _i0, uint32_t _i1, Float weight)
+			: weight(weight), i0(_i0), i1(_i1) {
+			if (i0 > i1)
+				std::swap(i0, i1);
+		}
+
+		bool operator<(const WeightedEdge &e) const {
+			return std::tie(weight, i0, i1) < std::tie(e.weight, e.i0, e.i1);
+		}
+
+		Float weight;
+		uint32_t i0, i1;
+	};
 
 	timer.beginStage("Building hierarchy");
-	std::vector<SMatrix> mR;
 	while (mL[mL.size() - 1].cols() > 1) {
 		const MatrixXf &V = mV[mV.size() - 1];
 		const MatrixXf &N = mN[mN.size() - 1];
@@ -279,7 +268,7 @@ void MultiResolutionHierarchy::build() {
 			nVertices++;
 		}
 
-		for (uint32_t i = 0; i<V.cols(); ++i) {
+		for (uint32_t i = 0; i < V.cols(); ++i) {
 			if (collapsed[i] || !visited[i])
 				continue;
 			P_triplets.push_back(Triplet(i, nVertices, 1.0f));
@@ -307,14 +296,13 @@ void MultiResolutionHierarchy::build() {
 
 		SMatrix L2 = R*L*P;
 		MatrixXf V2(3, nVertices), N2(3, nVertices), C2(3, nVertices), Q2(4, nVertices);
-		for (uint32_t i = 0; i<nVertices; ++i) {
+		for (uint32_t i = 0; i < nVertices; ++i) {
 			V2.col(i) = V_next[i];
 			N2.col(i) = N_next[i];
 			C2.col(i) = C_next[i];
 		}
 
 		nV_boundary_flag.push_back(vb_flag);
-		mR.push_back(std::move(R));
 		mP.push_back(std::move(P));
 		mN.push_back(std::move(N2));
 		mV.push_back(std::move(V2));
@@ -327,24 +315,11 @@ void MultiResolutionHierarchy::build() {
 	mQ.resize(mL.size());
 	mO.resize(mL.size());
 
-	if (Q_FROM_FILE)mQ[0] = QoF;
-
 	pcg32 rng;
 
 	for (uint32_t i = 0; i < mL.size(); ++i) {
+		mQ[i].resize(3, mV[i].cols());
 		mO[i].resize(3, mV[i].cols());
-
-		for (uint32_t j = 0; j < mV[i].cols(); ++j) {
-			Vector3f n = mN[i].col(j), v = mV[i].col(j);
-			rng.nextFloat();
-			Vector3f o = aabbRand(mAABB, rng);
-			o -= n.dot(o - v) * n;
-			mO[i].col(j) = o;
-		}
-
-		if (Q_FROM_FILE && i == 0)continue;
-		else mQ[i].resize(3, mV[i].cols());
-		if (Q_FROM_FILE)continue;
 
 		for (uint32_t j = 0; j < mV[i].cols(); ++j) {
 			if (i == 0 && nV_boundary_flag[i][j]) {
@@ -377,36 +352,23 @@ void MultiResolutionHierarchy::build() {
 			float angle = rng.nextFloat() * 2 * M_PI;
 			mQ[i].col(j) = s * std::cos(angle) + t * std::sin(angle);
 		}
+
+
+		for (uint32_t j = 0; j < mV[i].cols(); ++j) {
+			Vector3f n = mN[i].col(j), v = mV[i].col(j);
+			rng.nextFloat();
+			Vector3f o = aabbRand(mAABB, rng);
+			o -= n.dot(o - v) * n;
+			mO[i].col(j) = o;
+		}
 	}
 	//propagate up
-	cout << "mQ " << mQ[0].cols() << "; mV" << mV[0].cols() << endl;
 	for (uint32_t i = 1; i < mL.size(); ++i) {
 		for (int k = 0; k < mP[i - 1].outerSize(); ++k) {
 			SMatrix::InnerIterator it(mP[i - 1], k);
 			for (; it; ++it) {
-				if (Q_FROM_FILE) continue;
 				if (nV_boundary_flag[i - 1][it.row()])
 					mQ[i].col(it.col()) = mQ[i - 1].col(it.row());
-			}
-		}
-		if (Q_FROM_FILE) {
-			for (int k = 0; k < mR[i - 1].outerSize(); ++k) {
-				SMatrix::InnerIterator it(mR[i - 1], k);
-				mQ[i].col(it.row()).setZero();
-				for (; it; ++it) {
-					Vector3f q_j = mQ[i - 1].col(it.col());
-					Vector3f n_i = mN[i].col(it.row());
-					mQ[i].col(it.row()) += q_j - n_i * n_i.dot(q_j);
-				}
-				if (mQ[i].col(it.row()) == Eigen::Vector3f::Zero()) {
-					Vector3f n = mN[i].col(it.row()), v = mV[i].col(it.row());
-					Vector3f s, t;
-					coordinate_system(n, s, t);
-					float angle = rng.nextFloat() * 2 * M_PI;
-					mQ[i].col(it.row()) = s * std::cos(angle) + t * std::sin(angle);
-				}else mQ[i].col(it.row()).normalize();
-
-
 			}
 		}
 	}
@@ -460,7 +422,7 @@ void MultiResolutionHierarchy::construct_tEs_tFEs(std::vector<std::vector<uint32
 	mtFes.resize(F.size());
 	for (uint32_t f = 0; f < F.size(); ++f) {
 		for (uint32_t e = 0; e < F[f].size(); ++e) {
-			uint32_t v0 = F[f][e], v1 = F[f][(e+1)%F[f].size()];
+			uint32_t v0 = F[f][e], v1 = F[f][(e + 1) % F[f].size()];
 			if (v0 > v1) std::swap(v0, v1);
 			temp.push_back(std::make_tuple(v0, v1, f, e, Edge_tag::B));
 		}
@@ -488,7 +450,7 @@ void MultiResolutionHierarchy::orient_polygon_mesh(MatrixXf &HV, vector<vector<u
 	uint32_t start_f = 0;
 	vector<bool> flag(HF.size(), true);
 	vector<vector<uint32_t>> Efs(Es.size());
-	for (uint32_t i = 0; i < HFE.size();i++)for (auto e : HFE[i])Efs[e].push_back(i);
+	for (uint32_t i = 0; i < HFE.size(); i++)for (auto e : HFE[i])Efs[e].push_back(i);
 	flag[start_f] = false;
 	std::queue<uint32_t> pf_temp; pf_temp.push(start_f);
 	while (!pf_temp.empty()) {
@@ -615,61 +577,5 @@ void MultiResolutionHierarchy::orient_polygon_mesh(MatrixXf &HV, vector<vector<u
 	}
 	if (res > 0) {
 		for (uint32_t i = 0; i < HF.size(); i++) std::reverse(HF[i].begin(), HF[i].end());
-	}
-}
-void MultiResolutionHierarchy::laplacian_smoothing(MatrixXf &V_, int smooth_iterations) {
-
-	SMatrix L_;
-	//laplacian matrix
-	std::vector<std::pair<uint32_t, uint32_t>> adj;
-	adj.reserve(mF.cols() * 6);
-	for (uint32_t f = 0; f < mF.cols(); ++f) {
-		for (int i = 0; i < 3; ++i) {
-			uint32_t v0 = mF(i, f);
-			uint32_t v1 = mF((i + 1) % 3, f);
-			adj.push_back(std::make_pair(v0, v1));
-			adj.push_back(std::make_pair(v1, v0));
-		}
-	}
-	std::sort(adj.begin(), adj.end());
-	adj.erase(std::unique(adj.begin(), adj.end()), adj.end());
-
-	std::vector<Triplet> triplets;
-	for (auto item : adj)
-		triplets.push_back(Triplet(item.first, item.second, 1.f));
-	L_.resize(mV[0].cols(), mV[0].cols());
-	L_.setFromTriplets(triplets.begin(), triplets.end());
-
-	for (uint32_t i = 0; i < (uint32_t)L_.rows(); ++i) {
-		Float sum = 1 / L_.row(i).sum();
-		L_.row(i) *= sum;
-		L_.coeffRef(i, i) = -sum;
-	}
-	L_.makeCompressed();
-
-
-	for (int it = 0; it<smooth_iterations; ++it) {
-		MatrixXf V_prime(V_.rows(), V_.cols());
-		cout << ".";
-		cout.flush();
-
-		tbb::parallel_for(
-			tbb::blocked_range<uint32_t>(0u, (uint32_t)V_.cols(), GRAIN_SIZE),
-			[&](const tbb::blocked_range<uint32_t> &range) {
-			for (uint32_t i = range.begin(); i != range.end(); ++i) {
-				SMatrix::InnerIterator it(L_, i);
-				Vector3f centroid = Vector3f::Zero();
-				int n = 0;
-				for (; it; ++it) {
-					uint32_t j = it.col();
-					centroid += V_.col(j);
-					n++;
-				}
-				if(n!=0) centroid /= n;
-				V_prime.col(i) = centroid;
-			}
-		}
-		);
-		V_prime.swap(V_);
 	}
 }

@@ -7,191 +7,192 @@
 
 template <typename ParseHeader, typename ParseLine>
 void loadTextFile(const std::string &filename, ParseHeader parseHeader,
-                  ParseLine parseLine) {
-    std::ifstream is(filename);
-    if (is.fail())
-        throw std::runtime_error("Unable to open tetgen file \"" + filename + "\"!");
+	ParseLine parseLine) {
+	std::ifstream is(filename);
+	if (is.fail())
+		throw std::runtime_error("Unable to open tetgen file \"" + filename + "\"!");
 
-    std::string line_str;
-    int line = 0, actual_line = 0;
+	std::string line_str;
+	int line = 0, actual_line = 0;
 
-    try {
-        while (std::getline(is, line_str)) {
-            ++actual_line;
-            std::istringstream iss(line_str);
+	try {
+		while (std::getline(is, line_str)) {
+			++actual_line;
+			std::istringstream iss(line_str);
 
-            if (line_str.empty() || line_str[0] == '#')
-                continue;
+			if (line_str.empty() || line_str[0] == '#')
+				continue;
 
-            if (++line == 1)
-                parseHeader(iss);
-            else
-                parseLine(iss);
-        }
-    } catch (const std::exception &e) {
-        throw std::runtime_error(
-            "Unable to parse tetgen file \"" + filename + ".node\" (line "
-            + std::to_string(actual_line) + "): " + e.what());
-    }
+			if (++line == 1)
+				parseHeader(iss);
+			else
+				parseLine(iss);
+		}
+	}
+	catch (const std::exception &e) {
+		throw std::runtime_error(
+			"Unable to parse tetgen file \"" + filename + ".node\" (line "
+			+ std::to_string(actual_line) + "): " + e.what());
+	}
 }
 
 void loadTetMesh(const std::string &prefix, MatrixXf &V, MatrixXu &F, MatrixXu &T) {
-    uint32_t vertexCount, faceCount, tetCount, dimension, nodesPerTet, boundaryInfo;
-    
-    Timer<> timer;
-    timer.beginStage("Loading tetrahedral mesh \"" + prefix + ".{node/face/ele}\"");
+	uint32_t vertexCount, faceCount, tetCount, dimension, nodesPerTet, boundaryInfo;
 
-    loadTextFile(
-        prefix + ".node",
-        [&](std::istringstream &is) {
-            if (!(is >> vertexCount) || !(is >> dimension))
-                throw std::runtime_error("Unable to parse header!");
-            if (dimension != 3)
-                throw std::runtime_error("Invalid dimension!");
-            V.resize(3, vertexCount);
-        },
-        [&](std::istringstream &is) {
-           uint32_t index; 
-           Float x, y, z;
-           if (!(is >> index >> x >> y >> z))
-                throw std::runtime_error("Unable to parse vertex data!");
-           V.col(index) << x, y, z;
-        }
-    );
+	Timer<> timer;
+	timer.beginStage("Loading tetrahedral mesh \"" + prefix + ".{node/face/ele}\"");
 
-    loadTextFile(
-        prefix + ".ele",
-        [&](std::istringstream &is) {
-            if (!(is >> tetCount) || !(is >> nodesPerTet))
-                throw std::runtime_error("Unable to parse header!");
-            if (nodesPerTet != 4)
-                throw std::runtime_error("Only files with 4 nodes per tetrahedron are supported!");
-            T.resize(4, tetCount);
-        },
-        [&](std::istringstream &is) {
-           uint32_t index, i0, i1, i2, i3;
-           if (!(is >> index >> i0 >> i1 >> i2 >> i3))
-                throw std::runtime_error("Unable to parse element data!");
-           T.col(index) << i0, i1, i2, i3;
-        }
-    );
+	loadTextFile(
+		prefix + ".node",
+		[&](std::istringstream &is) {
+		if (!(is >> vertexCount) || !(is >> dimension))
+			throw std::runtime_error("Unable to parse header!");
+		if (dimension != 3)
+			throw std::runtime_error("Invalid dimension!");
+		V.resize(3, vertexCount);
+	},
+		[&](std::istringstream &is) {
+		uint32_t index;
+		Float x, y, z;
+		if (!(is >> index >> x >> y >> z))
+			throw std::runtime_error("Unable to parse vertex data!");
+		V.col(index) << x, y, z;
+	}
+	);
 
-    uint32_t actualFaceCount = 0;
-    loadTextFile(
-        prefix + ".face",
-        [&](std::istringstream &is) {
-            if (!(is >> faceCount) || !(is >> boundaryInfo))
-                throw std::runtime_error("Unable to parse header!");
-            F.resize(3, faceCount);
-        },
-        [&](std::istringstream &is) {
-           uint32_t index, i0, i1, i2;
-           if (!(is >> index >> i0 >> i1 >> i2))
-                throw std::runtime_error("Unable to parse face data!");
-           if (boundaryInfo) {
-               int b;
-               if (!(is >> b))
-                   throw std::runtime_error("Unable to parse face data!");
-               if (b == 0)
-                   return;
-           }
-           F.col(actualFaceCount++) << i0, i1, i2;
-        }
-    );
-    F.row(0).swap(F.row(1));
-    F.conservativeResize(3, actualFaceCount);
+	loadTextFile(
+		prefix + ".ele",
+		[&](std::istringstream &is) {
+		if (!(is >> tetCount) || !(is >> nodesPerTet))
+			throw std::runtime_error("Unable to parse header!");
+		if (nodesPerTet != 4)
+			throw std::runtime_error("Only files with 4 nodes per tetrahedron are supported!");
+		T.resize(4, tetCount);
+	},
+		[&](std::istringstream &is) {
+		uint32_t index, i0, i1, i2, i3;
+		if (!(is >> index >> i0 >> i1 >> i2 >> i3))
+			throw std::runtime_error("Unable to parse element data!");
+		T.col(index) << i0, i1, i2, i3;
+	}
+	);
 
-    timer.endStage("V=" + std::to_string(V.cols()) + ", F = " +
-                   std::to_string(F.cols()) + ", T = " +
-                   std::to_string(T.cols()));
+	uint32_t actualFaceCount = 0;
+	loadTextFile(
+		prefix + ".face",
+		[&](std::istringstream &is) {
+		if (!(is >> faceCount) || !(is >> boundaryInfo))
+			throw std::runtime_error("Unable to parse header!");
+		F.resize(3, faceCount);
+	},
+		[&](std::istringstream &is) {
+		uint32_t index, i0, i1, i2;
+		if (!(is >> index >> i0 >> i1 >> i2))
+			throw std::runtime_error("Unable to parse face data!");
+		if (boundaryInfo) {
+			int b;
+			if (!(is >> b))
+				throw std::runtime_error("Unable to parse face data!");
+			if (b == 0)
+				return;
+		}
+		F.col(actualFaceCount++) << i0, i1, i2;
+	}
+	);
+	F.row(0).swap(F.row(1));
+	F.conservativeResize(3, actualFaceCount);
+
+	timer.endStage("V=" + std::to_string(V.cols()) + ", F = " +
+		std::to_string(F.cols()) + ", T = " +
+		std::to_string(T.cols()));
 }
 
 void loadTriMesh(const std::string &filename, MatrixXf &V, MatrixXu &F) {
-    auto message_cb = [](p_ply ply, const char *msg) { cerr << "rply: " << msg << endl; };
+	auto message_cb = [](p_ply ply, const char *msg) { cerr << "rply: " << msg << endl; };
 
-    Timer<> timer;
-    timer.beginStage("Loading triangle mesh \"" + filename + "\"");
+	Timer<> timer;
+	timer.beginStage("Loading triangle mesh \"" + filename + "\"");
 
-    p_ply ply = ply_open(filename.c_str(), message_cb, 0, nullptr);
-    if (!ply)
-        throw std::runtime_error("Unable to open PLY file \"" + filename + "\"!");
+	p_ply ply = ply_open(filename.c_str(), message_cb, 0, nullptr);
+	if (!ply)
+		throw std::runtime_error("Unable to open PLY file \"" + filename + "\"!");
 
-    if (!ply_read_header(ply)) {
-        ply_close(ply);
-        throw std::runtime_error("Unable to open PLY header of \"" + filename + "\"!");
-    }
+	if (!ply_read_header(ply)) {
+		ply_close(ply);
+		throw std::runtime_error("Unable to open PLY header of \"" + filename + "\"!");
+	}
 
-    p_ply_element element = nullptr;
-    uint32_t vertexCount = 0, faceCount = 0;
+	p_ply_element element = nullptr;
+	uint32_t vertexCount = 0, faceCount = 0;
 
-    /* Inspect the structure of the PLY file, load number of faces if avaliable */
-    while ((element = ply_get_next_element(ply, element)) != nullptr) {
-        const char *name;
-        long nInstances;
+	/* Inspect the structure of the PLY file, load number of faces if avaliable */
+	while ((element = ply_get_next_element(ply, element)) != nullptr) {
+		const char *name;
+		long nInstances;
 
-        ply_get_element_info(element, &name, &nInstances);
-        if (!strcmp(name, "vertex"))
-            vertexCount = (uint32_t) nInstances;
-        else if (!strcmp(name, "face"))
-            faceCount = (uint32_t) nInstances;
-    }
+		ply_get_element_info(element, &name, &nInstances);
+		if (!strcmp(name, "vertex"))
+			vertexCount = (uint32_t)nInstances;
+		else if (!strcmp(name, "face"))
+			faceCount = (uint32_t)nInstances;
+	}
 
-    if (vertexCount == 0 || faceCount == 0)
-        throw std::runtime_error("PLY file \"" + filename + "\" is invalid! No face/vertex/elements found!");
+	if (vertexCount == 0 || faceCount == 0)
+		throw std::runtime_error("PLY file \"" + filename + "\" is invalid! No face/vertex/elements found!");
 
-    F.resize(3, faceCount);
-    V.resize(3, vertexCount);
+	F.resize(3, faceCount);
+	V.resize(3, vertexCount);
 
-    struct VertexCallbackData { MatrixXf &V; };
-    struct FaceCallbackData { MatrixXu &F; };
+	struct VertexCallbackData { MatrixXf &V; };
+	struct FaceCallbackData { MatrixXu &F; };
 
-    auto rply_vertex_cb = [](p_ply_argument argument) -> int {
-        VertexCallbackData *data; long index, coord;
-        ply_get_argument_user_data(argument, (void **) &data, &coord);
-        ply_get_argument_element(argument, nullptr, &index);
-        data->V(coord, index) = (Float) ply_get_argument_value(argument);
-        return 1;
-    };
+	auto rply_vertex_cb = [](p_ply_argument argument) -> int {
+		VertexCallbackData *data; long index, coord;
+		ply_get_argument_user_data(argument, (void **)&data, &coord);
+		ply_get_argument_element(argument, nullptr, &index);
+		data->V(coord, index) = (Float)ply_get_argument_value(argument);
+		return 1;
+	};
 
-    auto rply_index_cb = [](p_ply_argument argument) -> int {
-        FaceCallbackData *data;
-        long length, value_index, index;
-        ply_get_argument_property(argument, nullptr, &length, &value_index);
+	auto rply_index_cb = [](p_ply_argument argument) -> int {
+		FaceCallbackData *data;
+		long length, value_index, index;
+		ply_get_argument_property(argument, nullptr, &length, &value_index);
 
-        if (length != 3)
-            throw std::runtime_error("Only triangle faces are supported!");
+		if (length != 3)
+			throw std::runtime_error("Only triangle faces are supported!");
 
-        ply_get_argument_user_data(argument, (void **) &data, nullptr);
-        ply_get_argument_element(argument, nullptr, &index);
+		ply_get_argument_user_data(argument, (void **)&data, nullptr);
+		ply_get_argument_element(argument, nullptr, &index);
 
-        if (value_index >= 0)
-            data->F(value_index, index) = (uint32_t) ply_get_argument_value(argument);
+		if (value_index >= 0)
+			data->F(value_index, index) = (uint32_t)ply_get_argument_value(argument);
 
-        return 1;
-    };
+		return 1;
+	};
 
-    VertexCallbackData vcbData{V};
-    FaceCallbackData fcbData{F};
+	VertexCallbackData vcbData{ V };
+	FaceCallbackData fcbData{ F };
 
-    if (!ply_set_read_cb(ply, "vertex", "x", rply_vertex_cb, &vcbData, 0) ||
-        !ply_set_read_cb(ply, "vertex", "y", rply_vertex_cb, &vcbData, 1) ||
-        !ply_set_read_cb(ply, "vertex", "z", rply_vertex_cb, &vcbData, 2)) {
-        ply_close(ply);
-        throw std::runtime_error("PLY file \"" + filename + "\" does not contain vertex position data!");
-    }
+	if (!ply_set_read_cb(ply, "vertex", "x", rply_vertex_cb, &vcbData, 0) ||
+		!ply_set_read_cb(ply, "vertex", "y", rply_vertex_cb, &vcbData, 1) ||
+		!ply_set_read_cb(ply, "vertex", "z", rply_vertex_cb, &vcbData, 2)) {
+		ply_close(ply);
+		throw std::runtime_error("PLY file \"" + filename + "\" does not contain vertex position data!");
+	}
 
-    if (!ply_set_read_cb(ply, "face", "vertex_indices", rply_index_cb, &fcbData, 0)) {
-        ply_close(ply);
-        throw std::runtime_error("PLY file \"" + filename + "\" does not contain vertex indices!");
-    }
+	if (!ply_set_read_cb(ply, "face", "vertex_indices", rply_index_cb, &fcbData, 0)) {
+		ply_close(ply);
+		throw std::runtime_error("PLY file \"" + filename + "\" does not contain vertex indices!");
+	}
 
-    if (!ply_read(ply)) {
-        ply_close(ply);
-        throw std::runtime_error("Error while loading PLY data from \"" + filename + "\"!");
-    }
+	if (!ply_read(ply)) {
+		ply_close(ply);
+		throw std::runtime_error("Error while loading PLY data from \"" + filename + "\"!");
+	}
 
-    ply_close(ply);
-    timer.endStage("V=" + std::to_string(V.cols()) + ", F = " + std::to_string(F.cols()));
+	ply_close(ply);
+	timer.endStage("V=" + std::to_string(V.cols()) + ", F = " + std::to_string(F.cols()));
 }
 
 void load_obj(const std::string &filename, MatrixXu &F, MatrixXf &V) {
@@ -238,7 +239,7 @@ void load_obj(const std::string &filename, MatrixXu &F, MatrixXf &V) {
 	typedef std::unordered_map<obj_vertex, uint32_t, obj_vertexHash> VertexMap;
 
 	size_t last_slash_idx = filename.rfind('.');
-	if (filename.substr(last_slash_idx) != ".OBJ" && filename.substr(last_slash_idx) != ".obj") 
+	if (filename.substr(last_slash_idx) != ".OBJ" && filename.substr(last_slash_idx) != ".obj")
 		throw std::runtime_error("Unable to open OBJ file \"" + filename + "\"!");
 
 	std::ifstream is(filename);
@@ -320,13 +321,13 @@ void load_obj(const std::string &filename, MatrixXu &F, MatrixXf &V) {
 		V.col(i) = positions.at(vertices[i].p - 1);
 }
 
-void load_off(const std::string &filename, std::vector < std::vector<uint32_t>> &F, MatrixXf &V){
+void load_off(const std::string &filename, std::vector < std::vector<uint32_t>> &F, MatrixXf &V) {
 	FILE *ff = fopen(filename.data(), "rt");
 	char s[1024], sread[1024], sread2[1024];
 	int vnum, hnum, r;	float x, y, z;
 	if (fscanf(ff, "%s", &sread) != 1 || (strcmp(sread, "OFF") != 0))
 		throw std::runtime_error("cannot find head of OFF!");
-	
+
 	fscanf(ff, "%d %d %d", &vnum, &hnum, &r);
 	V.resize(3, vnum);
 	V.setZero();
@@ -341,7 +342,7 @@ void load_off(const std::string &filename, std::vector < std::vector<uint32_t>> 
 	}
 	F.clear();
 	F.resize(hnum);
-	for (int i = 0; i<hnum; i++){
+	for (int i = 0; i<hnum; i++) {
 		int nw;
 		fscanf(ff, "%d", &nw);
 		F[i].resize(nw);
@@ -636,7 +637,7 @@ void write_surface_mesh_OFF(MatrixXf &V, std::vector<std::vector<uint32_t>> &F, 
 	for (int i = 0; i<V.cols(); i++)
 		f << V(0, i) << " " << V(1, i) << " " << V(2, i) << std::endl;
 
-	for (int i = 0; i < F.size(); i++){
+	for (int i = 0; i < F.size(); i++) {
 		f << F[i].size() << " ";
 		for (int j = 0; j < F[i].size(); j++)
 			f << F[i][j] << " ";
@@ -646,14 +647,14 @@ void write_surface_mesh_OFF(MatrixXf &V, std::vector<std::vector<uint32_t>> &F, 
 }
 void write_surface_mesh_OBJ(MatrixXf &V, std::vector<std::vector<uint32_t>> &F, char * path)
 {
-	std::fstream f(path, std::ios::out);	
+	std::fstream f(path, std::ios::out);
 	for (int i = 0; i<V.cols(); i++)
-		f <<"v "<< V(0, i) << " " << V(1, i) << " " << V(2, i) << std::endl;
+		f << "v " << V(0, i) << " " << V(1, i) << " " << V(2, i) << std::endl;
 
 	for (int i = 0; i < F.size(); i++) {
 		f << "f";
 		for (int j = 0; j < F[i].size(); j++)
-			f << " " << F[i][j] +1;
+			f << " " << F[i][j] + 1;
 		f << endl;
 	}
 	f.close();
@@ -674,7 +675,7 @@ void write_surface_mesh_OBJ(MatrixXf &V, MatrixXu &F, char * path)
 	f.close();
 }
 
-void write_volume_mesh_VTK(MatrixXf &V, std::vector<std::vector<uint32_t>> &T, char * path) 
+void write_volume_mesh_VTK(MatrixXf &V, std::vector<std::vector<uint32_t>> &T, char * path)
 {
 	std::fstream f(path, std::ios::out);
 
@@ -717,7 +718,7 @@ void write_volume_mesh_VTK(MatrixXf &V, std::vector<tuple_E> &E, std::vector<std
 
 	f << "# vtk DataFile Version 2.0" << std::endl << "hex-dominant mesh vtk data" << std::endl;
 	f << "ASCII" << std::endl;
-	f << "DATASET UNSTRUCTURED_GRID" << std::endl; 
+	f << "DATASET UNSTRUCTURED_GRID" << std::endl;
 	//f << "DATASET POLYDATA" << std::endl;
 
 	f << "POINTS " << V.cols() << " double" << std::endl;
@@ -734,7 +735,7 @@ void write_volume_mesh_VTK(MatrixXf &V, std::vector<tuple_E> &E, std::vector<std
 
 	//f << "POLYGONS " << F.size() << " " << polygon_num + F.size() << endl;
 	f << "CELLS " << F.size() << " " << polygon_num + F.size() << endl;
-	
+
 	for (int i = 0; i < F.size(); i++)
 	{
 		f << " " << F[i].size() << " ";
@@ -780,21 +781,21 @@ void write_volume_mesh_VTK(MatrixXf &V, std::vector<tuple_E> &E, std::vector<std
 void write_volume_mesh_HYBRID(MatrixXf &V, std::vector<std::vector<uint32_t>> &F, std::vector<std::vector<uint32_t>> &P, std::vector<bool> &P_flag, std::vector<std::vector<bool>> &PF_flag, char * path)
 {
 	std::fstream f(path, std::ios::out);
-	
-	f << V.cols() << " "<< F.size()<<" "<< 3 * P.size() << std::endl;
+
+	f << V.cols() << " " << F.size() << " " << 3 * P.size() << std::endl;
 	for (int i = 0; i<V.cols(); i++)
 		f << V(0, i) << " " << V(1, i) << " " << V(2, i) << std::endl;
 
-	for (auto fvs:F){
+	for (auto fvs : F) {
 		f << fvs.size() << " ";
-		for (auto vid: fvs)
+		for (auto vid : fvs)
 			f << vid << " ";
 		f << std::endl;
 	}
 
-	for (uint32_t i = 0; i < P.size();i++) {
+	for (uint32_t i = 0; i < P.size(); i++) {
 		f << P[i].size() << " ";
-		for (auto fid: P[i])
+		for (auto fid : P[i])
 			f << fid << " ";
 		f << std::endl;
 		f << PF_flag[i].size() << " ";
@@ -823,7 +824,7 @@ void write_volume_mesh_MESH(MatrixXf &V, std::vector<std::vector<uint32_t>> &T, 
 
 	for (int i = 0; i<T.size(); i++)
 	{
-		f_out_meshlab_ << T[i][0] + 1 << " " << T[i][1] + 1 << " " << T[i][2] + 1 << " " << T[i][3] + 1 <<" "<< 0 << std::endl;
+		f_out_meshlab_ << T[i][0] + 1 << " " << T[i][1] + 1 << " " << T[i][2] + 1 << " " << T[i][3] + 1 << " " << 0 << std::endl;
 	}
 	f_out_meshlab_ << "End";
 	f_out_meshlab_.close();
@@ -847,31 +848,31 @@ void write_edge_coloring_TXT(std::vector<MatrixXf> &E_Colors, char * path) {
 }
 void write_singularities_SING(MatrixXf &Singularity, char * path) {
 	std::fstream ff(path, std::ios::out);
-	ff << Singularity.cols()/2 << std::endl;
-	for (uint32_t i = 0; i < Singularity.cols()/2; i++) {		
-		for(uint32_t j=0;j<3;j++)
-			ff << std::fixed << Singularity(j, 2* i) << " ";
+	ff << Singularity.cols() / 2 << std::endl;
+	for (uint32_t i = 0; i < Singularity.cols() / 2; i++) {
+		for (uint32_t j = 0; j<3; j++)
+			ff << std::fixed << Singularity(j, 2 * i) << " ";
 		for (uint32_t j = 0; j < 3; j++)
 			ff << std::fixed << Singularity(j, 2 * i + 1) << " ";
 		ff << endl;
-	}	
+	}
 	ff.close();
 }
 void write_Vertex_Types_TXT(std::vector<int> &V_types, char * path) {
 	std::fstream ff(path, std::ios::out);
 	ff << V_types.size() << std::endl;
-	for (auto type: V_types) {
-			ff << std::fixed << type << endl;
+	for (auto type : V_types) {
+		ff << std::fixed << type << endl;
 	}
 	ff.close();
 }
 void write_statistics_TXT(statistics &sta, char * path) {
 	std::fstream f(path, std::ios::out);
 
-	f<< 1 + 1 + 1 + sta.timings.size()+sta.polyhedral_ratios.size() << std::endl;
-	f << sta.hex_ratio << "\t hex - ratio"<<std::endl;
+	f << 1 + 1 + 1 + sta.timings.size() + sta.polyhedral_ratios.size() << std::endl;
+	f << sta.hex_ratio << "\t hex - ratio" << std::endl;
 	f << sta.tN << " " << sta.tetN << "\t #triangle #tet" << std::endl;
-	f << sta.hN<<" "<<sta.pN <<"\t #hex #total"<< std::endl;
+	f << sta.hN << " " << sta.pN << "\t #hex #total" << std::endl;
 	//for(auto timing:sta.timings)
 	if (sta.timings.size()) {
 		f << sta.timings[0] / 1000 << "\t\t " << "timing: data pre-processing" << std::endl;
@@ -881,8 +882,8 @@ void write_statistics_TXT(statistics &sta, char * path) {
 	}
 
 	for (uint32_t i = 0; i < sta.polyhedral_nums.size(); i++) {
-		if(sta.polyhedral_nums[i]>0)
-		f << sta.polyhedral_ratios[i] << "\t "<< i <<"th polyhedral "<<sta.polyhedral_nums[i] << std::endl;
+		if (sta.polyhedral_nums[i]>0)
+			f << sta.polyhedral_ratios[i] << "\t " << i << "th polyhedral " << sta.polyhedral_nums[i] << std::endl;
 	}
 	f.close();
 }
@@ -930,7 +931,7 @@ void load_HYBRID_mesh(Mesh &mesh, string path) {
 		for (int j = 0; j<nf; j++) {
 			fscanf(f, "%d", &(h.fs[j]));
 		}
-		
+
 		int tmp; fscanf(f, "%d", &tmp);
 		for (int j = 0; j<nf; j++) {
 			int s;
@@ -943,29 +944,4 @@ void load_HYBRID_mesh(Mesh &mesh, string path) {
 	}
 
 	fclose(f);
-}
-void write_Rosy_TXT(MatrixXf &R, string path) {
-	std::fstream f(path, std::ios::out);
-
-	f << R.cols() << std::endl;
-
-	for (int i = 0; i < R.cols(); i++) {
-		f << R.col(i) << std::endl;
-	}
-	f.close();
-}
-bool load_Rosy(MatrixXf &Q, string path) {
-	std::ifstream ff(path, std::ios::in);
-	if (ff.fail())return false;
-	char s[1024];
-	int vnum;	float x, y, z;
-	ff.getline(s, 1023);
-	sscanf(s, "%d", &vnum);
-	Q.resize(3, vnum);
-	for (int i = 0; i < vnum; i++) {
-		ff.getline(s, 1023);
-		sscanf(s, "%f %f %f", &x, &y, &z);
-		Q.col(i) = Vector3f(x, y, z);
-	}
-	ff.close();
 }

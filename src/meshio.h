@@ -35,5 +35,3 @@ extern void write_statistics_TXT(statistics &sta, char * path);
 
 extern void load_HYBRID_mesh(Mesh &mesh, string path);
 
-extern void write_Rosy_TXT(MatrixXf &R, string path);
-extern bool load_Rosy(MatrixXf &Q, string path);
