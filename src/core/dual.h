@@ -19,6 +19,8 @@
 #ifndef __Single_Strip_Mesh_Simplification__Dual__
 #define __Single_Strip_Mesh_Simplification__Dual__
 
+#define USE_GUROBI
+
 #include <iostream>
 #include <vector>
 #include <algorithm>
@@ -28,7 +30,10 @@
 #include "cyPoint.h"
 #include "HE_Polyhedron.h"
 
+#ifdef USE_GUROBI
 #include "gurobi_c++.h"
+#endif
+
 
 class HE_Polyhedron;
 

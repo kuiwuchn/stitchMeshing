@@ -1213,6 +1213,7 @@ void DualGraph::loadGurobiResult(std::string pFilename)
 
 void DualGraph::gurobiSolverHori()
 {
+#ifdef USE_GUROBI
 	try {
 		GRBEnv* env = 0;
 		env = new GRBEnv();
@@ -1395,10 +1396,12 @@ void DualGraph::gurobiSolverHori()
 	catch (...) {
 		std::cout << "Exception during optimization" << std::endl;
 	}
+#endif
 }
 
 void DualGraph::gurobiSolver(std::string pFilename)
 {
+#ifdef USE_GUROBI
 	try {
 		//GRBEnv env = GRBEnv();
 		//GRBModel model = GRBModel(env);
@@ -1585,6 +1588,7 @@ void DualGraph::gurobiSolver(std::string pFilename)
 	catch (...) {
 		std::cout << "Exception during optimization" << std::endl;
 	}
+#endif
 }
 
 void DualGraph::cut(std::vector<HE_Vertex>& pVerts, std::vector<std::vector<int> >& pFaces)
@@ -2357,6 +2361,7 @@ void DualGraph::createGroupEdges()
 
 void DualGraph::waleMismatchSolver()
 {
+#ifdef USE_GUROBI
 	try {
 		GRBEnv* env = 0;
 		env = new GRBEnv();
@@ -2491,6 +2496,7 @@ void DualGraph::waleMismatchSolver()
 	catch (...) {
 		std::cout << "Exception during optimization" << std::endl;
 	}
+#endif
 }
 
 void DualGraph::setSubGroupFace(DualGraph* pDual)
