@@ -84,14 +84,13 @@ Stitch Meshing is published under the Lesser GNU Public License (LGPL). That mea
 Please cite the following paper if it helps. 
 
 ```
-@article{Wu:2018:stitchmeshing
+@article{Wu:2018:stitchmeshing,
  author = {Kui Wu and Xifeng Gao and Zachary Ferguson and Daniele Panozzo and Cem Yuksel},  
  title = {Stitch Meshing},  
  journal = {ACM Trans. Graph.},  
  issue_date = {Aug 2018},  
  volume = {37},  
  number = {4},  
- month = aug,  
  year = {2018},    
  publisher = {ACM},  
  address = {New York, NY, USA},   
