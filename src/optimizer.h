@@ -32,7 +32,7 @@ public:
     void save(Serializer &serializer) const;
     void load(Serializer &serializer);
 
-private:
+public:
     MultiResolutionHierarchy &mRes;
     std::thread mThread;
     std::condition_variable_any mCond;

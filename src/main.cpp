@@ -13,9 +13,8 @@ int main(int argc, char **argv) {
     #endif
 
 		bool Batch_Process = false;
-		uint32_t  dim = 2;
 		char batchIutput[300], batchOutput[300];
-		Float scale = 3, tlen=1.0; uint32_t smooth_iter = 10;
+		Float scale = -1;
     try {
         for (int i=1; i<argc; ++i) {
             if (strcmp("--fullscreen", argv[i]) == 0 || strcmp("-F", argv[i]) == 0) {
@@ -36,27 +35,6 @@ int main(int argc, char **argv) {
 			else if (strcmp("-batch", argv[i]) == 0 || strcmp("-b", argv[i]) == 0) {
 				Batch_Process = true;
 			}
-			else if (strcmp("--dimension", argv[i]) == 0 || strcmp("-d", argv[i]) == 0) {
-				if (++i >= argc) {
-					cerr << "Missing tet-gen density argument!" << endl;
-					return -1;
-				}
-				dim = str_to_uint32_t(argv[i]);
-			}
-			else if (strcmp("--tlenratio", argv[i]) == 0 || strcmp("-tl", argv[i]) == 0) {
-				if (++i >= argc) {
-					cerr << "Missing tet-gen density argument!" << endl;
-					return -1;
-				}
-				tlen = str_to_float(argv[i]);
-			}
-			else if (strcmp("--smooth", argv[i]) == 0 || strcmp("-S", argv[i]) == 0) {
-				if (++i >= argc) {
-					cerr << "Missing smoothing iteration count argument!" << endl;
-					return -1;
-				}
-				smooth_iter = str_to_uint32_t(argv[i]);
-			}
 			else if (strcmp("--scale", argv[i]) == 0 || strcmp("-s", argv[i]) == 0) {
 				if (++i >= argc) {
 					cerr << "Missing scale argument!" << endl;
@@ -64,7 +42,7 @@ int main(int argc, char **argv) {
 				}
 				scale = str_to_float(argv[i]);
 			}
-			else if (strcmp("--iutput", argv[i]) == 0 || strcmp("-i", argv[i]) == 0) {
+			else if (strcmp("--input", argv[i]) == 0 || strcmp("-i", argv[i]) == 0) {
 				if (++i >= argc) {
 					cerr << "Missing batch mode output file argument!" << endl;
 					return -1;
@@ -95,7 +73,7 @@ int main(int argc, char **argv) {
     tbb::task_scheduler_init init(nprocs == -1 ? tbb::task_scheduler_init::automatic : nprocs);
 
 	if (Batch_Process) {
-		batch_process(batchIutput, batchOutput, dim, tlen, scale, smooth_iter);
+		batch_process(batchIutput, batchOutput, scale);
 		return EXIT_SUCCESS;
 	}
 	

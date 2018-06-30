@@ -379,8 +379,6 @@ Viewer::Viewer(std::string &filename, bool fullscreen)
 	mScaleBox->setAlignment(TextBox::Alignment::Right);
 	mScaleBox->setId("outputscale");
 
-
-
 //2D&3D
 	Widget *statePanel = new Widget(window);
 	statePanel->setLayout(new BoxLayout(Orientation::Horizontal, Alignment::Middle, 0, 5));
@@ -434,6 +432,8 @@ Viewer::Viewer(std::string &filename, bool fullscreen)
     mSolvePositionBtn->setBackgroundColor(Color(0, 0, 255, 25));
     mSolvePositionBtn->setFlags(Button::Flags::ToggleButton);
     mSolvePositionBtn->setChangeCallback([&](bool value) {
+
+		//std::cout << mRes.scale() << std::endl;
 
         mOptimizer->setOptimizePositions(value);
         mOptimizer->notify();
@@ -494,7 +494,7 @@ Viewer::Viewer(std::string &filename, bool fullscreen)
 	mLabelMesh->setCallback([&]() {
 		if (!mRes.tetMesh()) {
 			mRes.convert2Poly();
-			mRes.labelMesh();
+			mRes.labelMesh(Configlayers[Config_Layers::Flip_Course_Wale]->checked());
 			mRes.convertLabelMesh2Rend();
 		}
 		else {
@@ -613,6 +613,7 @@ Viewer::Viewer(std::string &filename, bool fullscreen)
 	Configlayers[Config_Layers::Extrinsic] = new CheckBox(popup3, "Extrinsic smoothing");
 	Configlayers[Config_Layers::Randomization] = new CheckBox(popup3, "Randomization");
 	Configlayers[Config_Layers::Hierarchy] = new CheckBox(popup3, "Hierarchy");
+	Configlayers[Config_Layers::Flip_Course_Wale] = new CheckBox(popup3, "Flip Course/Wale");
 	int ctr = 0;
 	for (auto l : Configlayers) {
 		l->setChecked(true);
@@ -885,7 +886,6 @@ void Viewer::drawContents() {
 	mOptimizer->setHierarchy(Configlayers[Config_Layers::Hierarchy]->checked());
 	mOptimizer->setExtrinsic(Configlayers[Config_Layers::Extrinsic]->checked());
 	mRes.Two_rosy_flag = Configlayers[Config_Layers::Two_Rosy]->checked();
-
 
 	mRes.setScale(mScaleBox->value());
 

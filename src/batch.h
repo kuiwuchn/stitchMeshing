@@ -15,5 +15,4 @@
 
 #include "common.h"
 
-extern void batch_process(char *input, char *output,
-	uint32_t dimension, Float tlen, Float scale, int smooth_iter);
+extern void batch_process(char *input, char *output, Float scale);

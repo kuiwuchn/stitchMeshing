@@ -71,6 +71,8 @@ void Optimizer::run() {
 		if (!mRunning)
 			break;
 	}
+
+	
 }
 void Optimizer::wait() {
 	std::lock_guard<ordered_lock> lock(mRes.mutex());

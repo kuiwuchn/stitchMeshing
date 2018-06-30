@@ -1148,7 +1148,7 @@ void DualGraph::findFaceGroups()
 	}
 }
 
-void DualGraph::loadGurobiResult(std::string pFilename)
+void DualGraph::loadGurobiResult(std::string pFilename, bool pFlip)
 {
 	int numVars = 0;
 
@@ -1199,10 +1199,20 @@ void DualGraph::loadGurobiResult(std::string pFilename)
 		for (int i = 0; i < outdegree; i++, e++)
 		{
 			HE_HalfEdge* he = _poly->halfedge((*e)->index());
-			if (!gurobiResult[offset + i])
-				he->SetFlag(EFLAG_HORIZONTAL);
+			if (pFlip)
+			{
+				if (gurobiResult[offset + i])
+					he->SetFlag(EFLAG_HORIZONTAL);
+				else
+					he->SetFlag(EFLAG_VERTICAL);
+			}
 			else 
-				he->SetFlag(EFLAG_VERTICAL);
+			{
+				if (!gurobiResult[offset + i])
+					he->SetFlag(EFLAG_HORIZONTAL);
+				else
+					he->SetFlag(EFLAG_VERTICAL);
+			}
 		}
 	}
 
@@ -1403,20 +1413,10 @@ void DualGraph::gurobiSolver(std::string pFilename)
 {
 #ifdef USE_GUROBI
 	try {
-		//GRBEnv env = GRBEnv();
-		//GRBModel model = GRBModel(env);
-
 		GRBEnv* env = 0;
 		env = new GRBEnv();
 
-		//env->set(GRB_IntParam_PoolSolutions, 1024);
-		//env->set(GRB_DoubleParam_PoolGap, 1e-12f);
-
-		//GRBsetintparam(*env, GRB_INT_PAR_POOLSOLUTIONS, 1024);
-
 		GRBModel model = GRBModel(*env);
-
-		//model.set("Threads", "2.0");
 
 		int numVars = 0;
 
@@ -1427,13 +1427,9 @@ void DualGraph::gurobiSolver(std::string pFilename)
 		{
 			HE_Face* f = _poly->face(fi);
 
-			if (f->hole()) { 
-				//std::cout << _poly->numFaces() << " " << fi << std::endl; 
-				continue;
-			}
+			if (f->hole())  continue;
 
 			_idxOffsets.push_back(numVars);
-			//std::cout << numVars << std::endl;
 			numVars += f->NumHalfEdge();
 		}
 
@@ -1484,20 +1480,6 @@ void DualGraph::gurobiSolver(std::string pFilename)
 				std::cout << "ERROR: shouldn't be here!\n";
 			}
 		}
-		//for (int i = 0; i < numNodes(); i++)
-		//{
-		//	c = 'c' + std::to_string(i) + '0';
-		//	model.addConstr(grbVars[i * 4 + 0], GRB_EQUAL, grbVars[i * 4 + 2], c);
-
-		//	c = 'c' + std::to_string(i) + '1';
-		//	model.addConstr(grbVars[i * 4 + 1], GRB_EQUAL, grbVars[i * 4 + 3], c);
-
-		//	c = 'c' + std::to_string(i) + '2';
-		//	model.addConstr(grbVars[i * 4 + 0] + grbVars[i * 4 + 1], GRB_EQUAL, 1.0f, c);
-
-		//	c = 'c' + std::to_string(i) + '3';
-		//	model.addConstr(grbVars[i * 4 + 0] + grbVars[i * 4 + 1] + grbVars[i * 4 + 2] + grbVars[i * 4 + 3], GRB_EQUAL, 2.0f, c);
-		//}
 	
 		GRBQuadExpr obje;
 		float weight;
@@ -1512,11 +1494,6 @@ void DualGraph::gurobiSolver(std::string pFilename)
 
 			if (_poly->face(f0)->hole() || _poly->face(f1)->hole()) continue;
 
-			//obje.addTerm(1.0f, grbVars[_idxOffsets[f0] + idx0], grbVars[_idxOffsets[f0] + idx0]);
-			//obje.addTerm(1.0f, grbVars[_idxOffsets[f1] + idx1], grbVars[_idxOffsets[f1] + idx1]);
-			//obje.addTerm(-2.0f, grbVars[_idxOffsets[f0] + idx0], grbVars[_idxOffsets[f1] + idx1]);
-
-			//weight = 0.5 - 0.25 * _poly->face(f0)->normal().Dot(_poly->face(f1)->normal());
 			weight = 1.0f;
 			obje += weight * (grbVars[_idxOffsets[f0] + idx0] - grbVars[_idxOffsets[f1] + idx1]) * (grbVars[_idxOffsets[f0] + idx0] - grbVars[_idxOffsets[f1] + idx1]);
 		}
@@ -1527,8 +1504,6 @@ void DualGraph::gurobiSolver(std::string pFilename)
 
 		// Optimize model		
 		model.optimize();
-
-		//model.set(GRB SOLUTION_LIMIT, 1);
 
 		if (model.get(GRB_IntAttr_Status) == GRB_OPTIMAL)
 		{
@@ -1550,29 +1525,21 @@ void DualGraph::gurobiSolver(std::string pFilename)
 				int fidx = 1;
 				for (int i = 0; i < numVars; i++)
 				{
-					//_gurobiResult.push_back(grbVars[i].get(GRB_DoubleAttr_X));
 					gurobiResult.push_back(grbVars[i].get(GRB_DoubleAttr_X) > 0.5f);
-					//std::cout << (grbVars[i].get(GRB_DoubleAttr_X) > 0.5f) << " ";
 
 					if (grbVars[i].get(GRB_DoubleAttr_X) > 0.5f)
 						uvfile << int(1) << " ";
 					else 
 						uvfile << int(0) << " ";
 
-					//uvfile << int(1 > 0.5f) << " ";
-
-					if (i == (_idxOffsets[fidx] - 1)) {
-						//std::cout << "| ";
+					if (i == (_idxOffsets[fidx] - 1)) 
 						fidx++;
-					}
 				}
-				//std::cout << std::endl;
 
 				uvfile.close();
 
 				_gurobiResultPool.push_back(gurobiResult);
 			}
-			//cout << endl;
 		}
 		else
 		{
@@ -1850,7 +1817,6 @@ void DualGraph::labelTriangleFace()
 		{
 			HE_Face* f = _poly->face(_groupFaceIdx[fj][fi]);
 			if (!f->TestFlag(VEF_FLAG_QUAD)) {
-				//std::cout << _groupFaceIdx[fj][fi] << std::endl;
 				int numHoriEdge = 0;
 				int numVertEdge = 0;
 				
@@ -1867,11 +1833,6 @@ void DualGraph::labelTriangleFace()
 
 					++e; ++i;
 				} while (e != sentinel);
-
-				if (numHoriEdge == 0 || numVertEdge == 0)
-				{
-					std::cout << "Error! - labelTriangleFace 0 H or 0 V: " << _groupFaceIdx[fj][fi] << std::endl;
-				}
 
 				if (numHoriEdge == 2 && numVertEdge == 1) {
 					if (isL)	f->SetFlag(VEF_FLAG_SHORTROW_L);
@@ -1891,8 +1852,6 @@ void DualGraph::labelTriangleFace()
 							f->SetFlag(VEF_FLAG_INC);
 						else if (nf->HalfEdgeIdx(he->twin()) == 1)
 							f->SetFlag(VEF_FLAG_DEC);
-						else
-							std::cout << "ERROR labelTriangleFace\n";
 					}
 					else if (nf->NumHalfEdge() == 3)
 					{
@@ -1912,15 +1871,9 @@ void DualGraph::labelTriangleFace()
 							}
 
 							if (f->HalfEdgeIdx((*e)) == 2)
-							{
 								f->SetFlag(VEF_FLAG_INC);
-							}
 							else if (f->HalfEdgeIdx((*e)) == 1)
-							{
 								f->SetFlag(VEF_FLAG_DEC);
-							}
-							else
-								std::cout << "ERROR labelTriangleFace\n";
 						}
 						else {
 							HE_Face* prev_f = _poly->face(_groupFaceIdx[fj][fi - 1]);
@@ -1937,24 +1890,12 @@ void DualGraph::labelTriangleFace()
 							}
 
 							if (f->HalfEdgeIdx((*e)) == 1)
-							{
 								f->SetFlag(VEF_FLAG_INC);
-							}
 							else if (f->HalfEdgeIdx((*e)) == 2)
-							{
 								f->SetFlag(VEF_FLAG_DEC);
-							}
-							else
-								std::cout << "ERROR labelTriangleFace\n";
+							
 						}
-						//if (nf->HalfEdgeIdx(he->twin()) == 2)
-						//	f->SetFlag(VEF_FLAG_INC);
-						//else if (nf->HalfEdgeIdx(he->twin()) == 1)
-						//	f->SetFlag(VEF_FLAG_DEC);
-						//else
-						//	std::cout << "ERROR labelTriangleFace\n";
 					}
-					else std::cout << "ERROR labelTriangleFace\n";
 				}
 			}
 		}
@@ -1971,7 +1912,6 @@ void DualGraph::breakConnectIncOrDec()
 			int f1i = _groupFaceIdx[gi][i];
 			int f2i = (i == (_groupFaceIdx[gi].size() - 1)) ? _groupFaceIdx[gi][0] : _groupFaceIdx[gi][i+1];
 
-			//HE_Face* f0 = _poly->face(f0i);
 			HE_Face* f1 = _poly->face(f1i);
 			HE_Face* f2 = _poly->face(f2i);
 
@@ -1979,7 +1919,6 @@ void DualGraph::breakConnectIncOrDec()
 
 			if (f1->TestFlag(VEF_FLAG_INC) && f2->TestFlag(VEF_FLAG_INC))// && !f0->TestFlag(VEF_FLAG_DEC))
 			{
-				//std::cout << f1i << " " << f2i << std::endl;
 				HE_Face::const_edge_circulator e = f1->begin();
 				HE_Face::const_edge_circulator sentinel = e;
 				while (true)
@@ -2011,7 +1950,6 @@ void DualGraph::breakConnectIncOrDec()
 
 			else if (f1->TestFlag(VEF_FLAG_DEC) && f2->TestFlag(VEF_FLAG_DEC))// && !f0->TestFlag(VEF_FLAG_INC))
 			{
-				//std::cout << f1i << " " << f2i << std::endl;
 				HE_Face::const_edge_circulator e = f1->begin();
 				HE_Face::const_edge_circulator sentinel = e;
 				while (true)
@@ -2051,7 +1989,6 @@ void DualGraph::findTopBtmGroupId()
 	}
 
 	/* find top groups id */
-	/// todo: doesn't count triangle yet
 	for (int gi = 0; gi < (int)_groupFaceIdx.size(); gi++)
 	{
 		std::vector<int> topGroupIdsCount, btmGroupIdsCount;
@@ -2198,7 +2135,6 @@ void DualGraph::findTopBtmGroupId()
 				else std::cout << "Error! - findTopGroup\n";			
 			}
 		}
-		//std::cout << std::endl;
 
 		for (int i = 0; i < (int)topGroupIdsCount.size(); i++)
 		{
@@ -2222,65 +2158,6 @@ void DualGraph::findTopBtmGroupId()
 	}
 
 	createGroupEdges();
-
-#if 0
-	for (int gi = 0; gi < (int)_groupFaceIdx.size(); gi++)
-	{
-		for (int i = 0; i < (int)_groupnodes[gi]._topGroupIds.size(); i++)
-		{
-			int topId = _groupnodes[gi]._topGroupIds[i];
-			std::cout << _groupnodes[gi]._topGroupCounts[i] << " ";
-
-			if (_groupnodes[gi]._topEdgeType[i] == EG_TOP)
-			{
-				for (int j = 0; j < (int)_groupnodes[topId]._topGroupIds.size(); j++)
-				{
-					if (_groupnodes[topId]._topGroupIds[j] == gi) {
-						std::cout << _groupnodes[topId]._topGroupCounts[j] << " ";
-					}
-				}
-			}
-
-			if (_groupnodes[gi]._topEdgeType[i] == EG_BTM)
-			{
-				for (int j = 0; j < (int)_groupnodes[topId]._btmGroupIds.size(); j++)
-				{
-					if (_groupnodes[topId]._btmGroupIds[j] == gi) {
-						std::cout << _groupnodes[topId]._btmGroupCounts[j] << " ";
-					}
-				}
-			}
-			std::cout << std::endl;
-		}
-
-		for (int i = 0; i < (int)_groupnodes[gi]._btmGroupIds.size(); i++)
-		{
-			int btmId = _groupnodes[gi]._btmGroupIds[i];
-			std::cout << _groupnodes[gi]._btmGroupCounts[i] << " ";
-
-			if (_groupnodes[gi]._btmEdgeType[i] == EG_TOP)
-			{
-				for (int j = 0; j < (int)_groupnodes[btmId]._topGroupIds.size(); j++)
-				{
-					if (_groupnodes[btmId]._topGroupIds[j] == gi) {
-						std::cout << _groupnodes[btmId]._topGroupCounts[j] << " ";
-					}
-				}
-			}
-
-			if (_groupnodes[gi]._btmEdgeType[i] == EG_BTM)
-			{
-				for (int j = 0; j < (int)_groupnodes[btmId]._btmGroupIds.size(); j++)
-				{
-					if (_groupnodes[btmId]._btmGroupIds[j] == gi) {
-						std::cout << _groupnodes[btmId]._btmGroupCounts[j] << " ";
-					}
-				}
-			}
-			std::cout << std::endl;
-		}
-	}
-#endif
 }
 
 void DualGraph::createGroupEdges()
@@ -2343,20 +2220,6 @@ void DualGraph::createGroupEdges()
 			_groupedges.push_back(ge);
 		}
 	}
-
-	//for (int i = 0; i < (int) _groupedges.size(); i++)
-	//{
-	//	std::cout << _groupedges[i]._fi[0] << " ";
-	//	if (_groupedges[i]._eType[0] == EG_TOP) std::cout << "T ";
-	//	else std::cout << "B ";
-
-	//	std::cout << _groupedges[i]._fi[1] << " ";
-	//	if (_groupedges[i]._eType[1] == EG_TOP) std::cout << "T ";
-	//	else std::cout << "B ";
-
-	//	std::cout << _groupedges[i]._weight << std::endl;
-	//}
-	//std::cout << _groupedges.size() << std::endl;
 }
 
 void DualGraph::waleMismatchSolver()
@@ -2741,43 +2604,6 @@ void DualGraph::findLoops()
 	}
 }
 
-void DualGraph::HVCheck()
-{
-	for (int fi = 0; fi < _poly->numFaces(); fi++)
-	{
-		HE_Face* f = _poly->face(fi);
-
-		//if (f->hole())
-		//{
-		//	std::cout << "Face " << fi << " is a hole\n";
-		//}
-
-		if (f->hole()) continue;
-
-		int Hcount = 0, Vcount = 0;
-		HE_Face::const_edge_circulator e = f->begin();
-		HE_Face::const_edge_circulator sentinel = e;
-		do 
-		{
-			if ((*e)->TestFlag(EFLAG_HORIZONTAL)) Hcount++;
-			if ((*e)->TestFlag(EFLAG_VERTICAL)) Vcount++;
-			e++;
-		} while (e != sentinel);
-
-		if (Hcount == 0 || Hcount > 2 || Vcount == 0 || Vcount > 2)
-		{
-			std::cout << "Bad face " << fi << " : ";
-			e = f->begin();
-			do
-			{
-				std::cout << (*e)->TestFlag(EFLAG_HORIZONTAL) << " ";
-				e++;
-			} while (e != sentinel);
-			std::cout << std::endl;
-		}
-	}
-}
-
 void DualGraph::fixUVMismatch()
 {
 	HE_HalfEdge* he1; HE_HalfEdge* he2;
@@ -2808,523 +2634,6 @@ bool DualGraph::CheckBadVertex()
 		}
 	}
 	return false;
-}
-
-void DualGraph::exportTextureMesh(const char* filename)
-
-{
-	std::cout << filename << std::endl;
-	std::ofstream exportFile;
-	exportFile.open(filename);
-
-	// vertices position
-	for (int vi = 0; vi < _poly->numVertices(); vi++)
-	{
-		exportFile << "v " << _poly->vertex(vi)->position().x << " " << _poly->vertex(vi)->position().y << " " << _poly->vertex(vi)->position().z << std::endl;
-	}
-
-	// vertices normal
-	for (int vi = 0; vi < _poly->numVertices(); vi++)
-	{
-		exportFile << "vn " << _poly->vertex(vi)->normal().x << " " << _poly->vertex(vi)->normal().y << " " << _poly->vertex(vi)->normal().z << std::endl;
-	}
-
-	// vertices normal
-#if 1
-	std::vector<std::vector<int>> vtMapping;
-	for (int fi = 0; fi < _poly->numFaces(); fi++)
-		vtMapping.push_back(std::vector<int>());
-
-	int vtCount = 0;
-	for (int j = 0; j < (int)_groupFaceIdx.size(); j++)
-	{
-		int firstShortRowFaceIdx = -1;
-		for (int i = 0; i < (int)_groupFaceIdx[j].size(); i++)
-		{
-			const HE_Face* f = _poly->face(_groupFaceIdx[j][i]);
-			if (f->TestFlag(VEF_FLAG_QUAD_SHORTROW_L) || f->TestFlag(VEF_FLAG_QUAD_SHORTROW_R))
-			{
-				firstShortRowFaceIdx = i; break;
-			}
-		}
-
-		if (firstShortRowFaceIdx != -1)
-			std::rotate(_groupFaceIdx[j].begin(), _groupFaceIdx[j].begin() + firstShortRowFaceIdx, _groupFaceIdx[j].end());
-
-		cyPoint2f startPos;
-
-		float w_len = (1.0f / 16.0f), h_len = (1.0f / 16.0f);
-
-		int subGroupIdx = 0;
-		for (int i = 0; i < (int)_groupFaceIdx[j].size(); i++)
-		{
-			const HE_Face* f = _poly->face(_groupFaceIdx[j][i]);
-			if (f->hole())	continue;
-
-			if (i != 0 && (f->TestFlag(VEF_FLAG_QUAD_SHORTROW_L) || f->TestFlag(VEF_FLAG_QUAD_SHORTROW_R)))
-			{
-				subGroupIdx++;
-			}
-
-			startPos.x = (((j * 2 + subGroupIdx) % 128) % 16) * (1.0f / 16.0f);
-			startPos.y = 0.5f + (((j * 2 + subGroupIdx) % 128) / 16) * (1.0f / 16.0f);
-
-			HE_Face::const_edge_circulator e = f->begin();
-			HE_Face::const_edge_circulator sentinel = e;
-
-			std::vector<int> vtIdx;
-
-			int idx = 0;
-			cyPoint2f offset;
-			if (f->TestFlag(VEF_FLAG_QUAD))
-			{
-				do
-				{
-					const HE_Vertex* v = (*e)->dst();
-					switch (idx)
-					{
-					case 0:offset = cyPoint2f(0.01f, 0.99f); break;
-					case 1:offset = cyPoint2f(0.01f, 0.01f); break;
-					case 2:offset = cyPoint2f(0.99f, 0.01f); break;
-					case 3:offset = cyPoint2f(0.99f, 0.99f); break;
-					//default: THROW_EXCEPTION("export quad error"); break;
-					}
-					//glVertex3fv(&v->position().x);
-					exportFile << "vt " << startPos.x + offset.x * w_len << " " << startPos.y + offset.y * h_len << std::endl;
-					vtIdx.push_back(vtCount++);
-					++e; ++idx;
-				} while (e != sentinel);
-			}
-			else if (f->TestFlag(VEF_FLAG_QUAD_SHORTROW_L))
-			{
-				do
-				{
-					const HE_Vertex* v = (*e)->dst();
-					switch (idx)
-					{
-					case 3:offset = cyPoint2f(0.01f, 0.99f); break;
-					case 0:offset = cyPoint2f(0.01f, 0.01f); break;
-					case 1:offset = cyPoint2f(0.99f, 0.01f); break;
-					case 2:offset = cyPoint2f(0.99f, 0.99f); break;
-					//default: THROW_EXCEPTION("export quad error"); break;
-					}
-					//glVertex3fv(&v->position().x);
-					exportFile << "vt " << startPos.x + offset.x * w_len << " " << startPos.y + offset.y * h_len - 0.5f << std::endl;
-					vtIdx.push_back(vtCount++);
-					++e; ++idx;
-				} while (e != sentinel);
-			}
-			else if (f->TestFlag(VEF_FLAG_QUAD_SHORTROW_R))
-			{
-				do
-				{
-					const HE_Vertex* v = (*e)->dst();
-					switch (idx)
-					{
-					case 1:offset = cyPoint2f(0.01f, 0.99f); break;
-					case 2:offset = cyPoint2f(0.01f, 0.01f); break;
-					case 3:offset = cyPoint2f(0.99f, 0.01f); break;
-					case 0:offset = cyPoint2f(0.99f, 0.99f); break;
-					//default: THROW_EXCEPTION("export quad error"); break;
-					}
-					//glVertex3fv(&v->position().x);
-					exportFile << "vt " << startPos.x + offset.x * w_len << " " << startPos.y + offset.y * h_len - 0.5f << std::endl;
-					vtIdx.push_back(vtCount++);
-					++e; ++idx;
-				} while (e != sentinel);
-			}
-#if 1
-			else if (f->TestFlag(VEF_FLAG_INC))
-			{
-				do
-				{
-					const HE_Vertex* v = (*e)->dst();
-					switch (idx)
-					{
-					case 0:offset = cyPoint2f(0.99f, 0.99f); break;
-					case 1:offset = cyPoint2f(0.99f, 0.01f); break;
-					case 2:offset = cyPoint2f(0.01f, 0.01f); break;
-					case 3:offset = cyPoint2f(0.01f, 0.99f); break;
-					case 4:offset = cyPoint2f(0.50f, 0.99f); break;
-					//default: THROW_EXCEPTION("export quad error"); break;
-					}
-					exportFile << "vt " << startPos.x + offset.x * w_len << " " << startPos.y + offset.y * h_len << std::endl;
-					vtIdx.push_back(vtCount++);
-					++e; ++idx;
-				} while (e != sentinel);
-			}
-			else if (f->TestFlag(VEF_FLAG_DEC))
-			{
-				do
-				{
-					const HE_Vertex* v = (*e)->dst();
-					switch (idx)
-					{
-					case 0:offset = cyPoint2f(0.99f, 0.99f); break;
-					case 1:offset = cyPoint2f(0.99f, 0.01f); break;
-					case 2:offset = cyPoint2f(0.50f, 0.01f); break;
-					case 3:offset = cyPoint2f(0.01f, 0.01f); break;
-					case 4:offset = cyPoint2f(0.01f, 0.99f); break;
-					default: break;
-					}
-					exportFile << "vt " << startPos.x + offset.x * w_len << " " << startPos.y + offset.y * h_len << std::endl;
-					vtIdx.push_back(vtCount++);
-					++e; ++idx;
-				} while (e != sentinel);
-			}
-			else if (f->TestFlag(VEF_FLAG_SHORTROW_R))
-			{
-				do
-				{
-					const HE_Vertex* v = (*e)->dst();
-					switch (idx)
-					{
-					case 0:offset = cyPoint2f(1.0f, 0.0f); break;
-					case 1:offset = cyPoint2f(1.0f, 1.0f); break;
-					case 2:offset = cyPoint2f(0.0f, 0.5f); break;
-					default: std::cout << "error\n"; break;
-					}
-					exportFile << "vt " << startPos.x + offset.x * w_len << " " << startPos.y + offset.y * h_len << std::endl;
-					vtIdx.push_back(vtCount++);
-					++e; ++idx;
-				} while (e != sentinel);
-			}
-			else if (f->TestFlag(VEF_FLAG_SHORTROW_L))
-			{
-				do
-				{
-					const HE_Vertex* v = (*e)->dst();
-					switch (idx)
-					{
-					case 0:offset = cyPoint2f(0.0f, 0.5f); break;
-					case 1:offset = cyPoint2f(1.0f, 1.0f); break;
-					case 2:offset = cyPoint2f(1.0f, 0.0f); break;
-					default: std::cout << "error\n"; break;
-					}
-					exportFile << "vt " << startPos.x + offset.x * w_len << " " << startPos.y + offset.y * h_len << std::endl;
-					vtIdx.push_back(vtCount++);
-					++e; ++idx;
-				} while (e != sentinel);
-			}
-			else if (f->TestFlag(VEF_FLAG_INC))
-			{
-				do
-				{
-					const HE_Vertex* v = (*e)->dst();
-					switch (idx)
-					{
-					case 0:offset = cyPoint2f(0.0f, 0.0f); break;
-					case 1:offset = cyPoint2f(0.5f, 1.0f); break;
-					case 2:offset = cyPoint2f(1.0f, 0.0f); break;
-					default: std::cout << "error\n"; break;
-					}
-					exportFile << "vt " << startPos.x + offset.x * w_len << " " << startPos.y + offset.y * h_len << std::endl;
-					vtIdx.push_back(vtCount++);
-					++e; ++idx;
-				} while (e != sentinel);
-			}
-			else if (f->TestFlag(VEF_FLAG_DEC))
-			{
-				do
-				{
-					const HE_Vertex* v = (*e)->dst();
-					switch (idx)
-					{
-					case 0:offset = cyPoint2f(0.0f, 1.0f); break;
-					case 1:offset = cyPoint2f(0.5f, 0.0f); break;
-					case 2:offset = cyPoint2f(1.0f, 1.0f); break;
-					default: std::cout << "error\n"; break;
-					}
-					exportFile << "vt " << startPos.x + offset.x * w_len << " " << startPos.y + offset.y * h_len << std::endl;
-					vtIdx.push_back(vtCount++);
-					++e; ++idx;
-				} while (e != sentinel);
-			}
-			//else if (f->TestFlag(HE_VEF_FLAG_QUAD_INC) || f->TestFlag(HE_VEF_FLAG_QUAD_SHORTROW_L) ||
-			//	f->TestFlag(HE_VEF_FLAG_QUAD_DEC) || f->TestFlag(HE_VEF_FLAG_QUAD_SHORTROW_R))
-			//{
-			//	//THROW_EXCEPTION("export error");
-			//	do
-			//	{
-			//		const HE_Vertex* v = (*e)->dst();
-			//		exportFile << "vt " << startPos.x << " " << startPos.y << std::endl;
-			//		vtIdx.push_back(vtCount++);
-			//		++e;
-			//	} while (e != sentinel);
-			//}
-#endif
-			else {
-				do
-				{
-					const HE_Vertex* v = (*e)->dst();
-					exportFile << "vt " << 0 << " " << 0 << std::endl;
-					vtIdx.push_back(vtCount++);
-					++e; ++idx;
-				} while (e != sentinel);
-			}
-			vtMapping[_groupFaceIdx[j][i]] = vtIdx;
-		}
-	}
-#endif
-
-	// face
-	for (int fi = 0; fi < _poly->numFaces(); fi++)
-	{
-		HE_Face* f = _poly->face(fi);
-		if (f->hole()) continue;
-
-		HE_Face::const_edge_circulator e = f->begin();
-		HE_Face::const_edge_circulator sentinel = e;
-
-		if (f->NumHalfEdge() <= 4)
-		{
-			exportFile << "f ";
-			int vtIdx = 0;
-			do
-			{
-				exportFile << (*e)->dst()->index() + 1 << "/" << vtMapping[fi][vtIdx] + 1 << " ";
-				++e; vtIdx++;
-			} while (e != sentinel);
-
-			exportFile << std::endl;
-		}
-		else if (f->TestFlag(VEF_FLAG_INC))
-		{
-			exportFile << "f ";
-			exportFile << (*e)->next()->dst()->index() + 1 << "/" << vtMapping[fi][1] + 1 << " ";
-			exportFile << (*e)->next()->next()->dst()->index() + 1 << "/" << vtMapping[fi][2] + 1 << " ";
-			exportFile << (*e)->next()->next()->next()->dst()->index() + 1 << "/" << vtMapping[fi][3] + 1 << " ";
-			exportFile << (*e)->next()->next()->next()->next()->dst()->index() + 1 << "/" << vtMapping[fi][4] + 1 << " ";
-			exportFile << std::endl;
-
-			exportFile << "f ";
-			exportFile << (*e)->dst()->index() + 1 << "/" << vtMapping[fi][0] + 1 << " ";
-			exportFile << (*e)->next()->dst()->index() + 1 << "/" << vtMapping[fi][1] + 1 << " ";
-			exportFile << (*e)->next()->next()->next()->next()->dst()->index() + 1 << "/" << vtMapping[fi][4] + 1 << " ";
-			exportFile << std::endl;
-		}
-		else if (f->TestFlag(VEF_FLAG_DEC))
-		{
-			exportFile << "f ";
-			exportFile << (*e)->dst()->index() + 1 << "/" << vtMapping[fi][1] + 0 << " ";
-			exportFile << (*e)->next()->next()->dst()->index() + 1 << "/" << vtMapping[fi][2] + 1 << " ";
-			exportFile << (*e)->next()->next()->next()->dst()->index() + 1 << "/" << vtMapping[fi][3] + 1 << " ";
-			exportFile << (*e)->next()->next()->next()->next()->dst()->index() + 1 << "/" << vtMapping[fi][4] + 1 << " ";
-			exportFile << std::endl;
-
-			exportFile << "f ";
-			exportFile << (*e)->dst()->index() + 1 << "/" << vtMapping[fi][0] + 1 << " ";
-			exportFile << (*e)->next()->dst()->index() + 1 << "/" << vtMapping[fi][1] + 1 << " ";
-			exportFile << (*e)->next()->next()->dst()->index() + 1 << "/" << vtMapping[fi][2] + 1 << " ";
-			exportFile << std::endl;
-		}
-	}
-
-	exportFile.close();
-}
-
-void DualGraph::exportUVMesh(const char* filename)
-{
-	std::cout << filename << std::endl;
-	std::ofstream exportFile;
-	exportFile.open(filename);
-
-	// vertices position
-	for (int vi = 0; vi < _poly->numVertices(); vi++)
-	{
-		exportFile << "v " << _poly->vertex(vi)->position().x << " " << _poly->vertex(vi)->position().y << " " << _poly->vertex(vi)->position().z << std::endl;
-	}
-
-	// vertices normal
-	for (int vi = 0; vi < _poly->numVertices(); vi++)
-	{
-		exportFile << "vn " << _poly->vertex(vi)->normal().x << " " << _poly->vertex(vi)->normal().y << " " << _poly->vertex(vi)->normal().z << std::endl;
-	}
-
-	// vertices texture
-	int vtCount = 0;
-	for (int fi = 0; fi < _poly->numFaces(); fi++)
-	{
-		HE_Face* f = _poly->face(fi);
-		if (f->hole()) continue;
-
-		if (f->NumHalfEdge() == 4)
-		{
-			while (!f->edge()->TestFlag(EFLAG_VERTICAL))
-			{
-				f->edge(f->edge()->next());
-			}
-
-			exportFile << "vt " << 0 << " " << 0 << std::endl;
-			exportFile << "vt " << 0.5 << " " << 0 << std::endl;
-			exportFile << "vt " << 0.5 << " " << 1 << std::endl;
-			exportFile << "vt " << 0 << " " << 1 << std::endl;
-			vtCount += 4;
-		}
-		else if (f->NumHalfEdge() == 3)
-		{
-			int hCount = 0, vCount = 0;
-			HE_Face::const_edge_circulator e = f->begin();
-			HE_Face::const_edge_circulator sentinel = e;
-			do
-			{
-				if ((*e)->TestFlag(EFLAG_VERTICAL)) vCount++;
-				if ((*e)->TestFlag(EFLAG_HORIZONTAL)) hCount++;
-				++e; 
-			} while (e != sentinel);
-
-			if (hCount == 2 && vCount == 1)
-			{
-				while (!f->edge()->TestFlag(EFLAG_VERTICAL))
-				{
-					f->edge(f->edge()->next());
-				}
-
-				exportFile << "vt " << 0.5 << " " << 0 << std::endl;
-				exportFile << "vt " << 1 << " " << 0 << std::endl;
-				exportFile << "vt " << 1 << " " << 1 << std::endl;
-			}
-			else if (hCount == 1 && vCount == 2)
-			{
-				while (!f->edge()->TestFlag(EFLAG_HORIZONTAL))
-				{
-					f->edge(f->edge()->next());
-				}
-				
-				
-				exportFile << "vt " << 1 << " " << 1 << std::endl;
-				exportFile << "vt " << 0.5 << " " << 1 << std::endl;
-				exportFile << "vt " << 0.5 << " " << 0 << std::endl;
-			}
-			else {
-				std::cout << "ERROR: export uv mesh\n";
-			}
-
-
-			vtCount += 3;
-		}
-		else
-			std::cout << "ERROR: export uv mesh\n";
-	}
-
-	// face
-	vtCount = 0;
-	for (int fi = 0; fi < _poly->numFaces(); fi++)
-	{
-		HE_Face* f = _poly->face(fi);
-		if (f->hole()) continue;
-
-		HE_Face::const_edge_circulator e = f->begin();
-		HE_Face::const_edge_circulator sentinel = e;
-		exportFile << "f ";
-		do
-		{
-			exportFile << (*e)->dst()->index() + 1 << "/" << vtCount + 1 << " ";
-			++e; vtCount++;
-		} while (e != sentinel);
-		exportFile << std::endl;
-	}
-
-	exportFile.close();
-}
-
-void DualGraph::exportQuadDominantMesh(const char* filename)
-
-{
-	std::cout << filename << std::endl;
-	std::ofstream exportFile;
-	exportFile.open(filename);
-
-	// vertices position
-	for (int vi = 0; vi < _poly->numVertices(); vi++)
-	{
-		exportFile << "v " << _poly->vertex(vi)->position().x << " " << _poly->vertex(vi)->position().y << " " << _poly->vertex(vi)->position().z << std::endl;
-	}
-
-	// vertices normal
-	for (int vi = 0; vi < _poly->numVertices(); vi++)
-	{
-		exportFile << "vn " << _poly->vertex(vi)->normal().x << " " << _poly->vertex(vi)->normal().y << " " << _poly->vertex(vi)->normal().z << std::endl;
-	}
-
-	// vertices texture
-	int vtCount = 0;
-	for (int fi = 0; fi < _poly->numFaces(); fi++)
-	{
-		HE_Face* f = _poly->face(fi);
-		if (f->hole()) continue;
-
-		if (f->NumHalfEdge() == 4)
-		{
-			exportFile << "vt " << 0 << " " << 0  << std::endl;
-			exportFile << "vt " << 0.5 << " " << 0  << std::endl;
-			exportFile << "vt " << 0.5 << " " << 1 << std::endl;
-			exportFile << "vt " << 0 << " " << 1  << std::endl;
-			vtCount += 4;
-		}
-		else if (f->NumHalfEdge() == 3)
-		{
-			exportFile << "vt " << 0.5 << " " << 0  << std::endl;
-			exportFile << "vt " << 1 << " " << 0  << std::endl;
-			exportFile << "vt " << 1 << " " << 1  << std::endl;
-			vtCount += 3;
-		}
-		else
-			std::cout << "ERROR: export quad dominant mesh\n";
-	}
-
-	// face
-	vtCount = 0;
-	for (int fi = 0; fi < _poly->numFaces(); fi++)
-	{
-		HE_Face* f = _poly->face(fi);
-		if (f->hole()) continue;
-
-		HE_Face::const_edge_circulator e = f->begin();
-		HE_Face::const_edge_circulator sentinel = e;
-		exportFile << "f ";
-		do
-		{
-			exportFile << (*e)->dst()->index() + 1 << "/" << vtCount + 1 << " ";
-			++e; vtCount++;
-		} while (e != sentinel);
-		exportFile << std::endl;
-	}
-
-	exportFile.close();
-}
-
-void DualGraph::BadVertexCheck()
-{
-#if 0
-	for (int fi = 0; fi < _poly->numFaces(); fi++)
-	{
-		HE_Face* f = _poly->face(fi);
-		if (f->hole())
-		{
-			std::cout << "Face " << fi << " is a hole\n";
-		}
-	}
-
-	for (int vi = 0; vi < _poly->numVertices(); vi++)
-	{
-		HE_Vertex* v = _poly->vertex(vi);
-		if (v->degree() <= 3)
-		{
-			std::cout << "bad vertex " << vi << " : degree " << v->degree() << std::endl;
-
-			HE_Vertex::const_edge_circulator e = v->begin();
-			HE_Vertex::const_edge_circulator sentinel = e;
-
-			do
-			{
-				std::cout << (*e)->face()->index() << " - " << (*e)->face()->NumHalfEdge() << " ";
-				++e;
-			} while (e != sentinel);
-			std::cout << std::endl;
-		}
-	}
-#endif
 }
 
 void DualGraph::flipEdgeUV()

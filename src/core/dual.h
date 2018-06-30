@@ -148,7 +148,7 @@ public:
 	int numEdges() const	{ return int(_dualedges.size()); }
 
 	void gurobiSolver(std::string pFilename);
-	void loadGurobiResult(std::string pFilename);
+	void loadGurobiResult(std::string pFilename, bool pFlip);
 
 	void gurobiSolverHori();
 
@@ -195,10 +195,6 @@ public:
 
 	void breakConnectIncOrDec();
 
-	void HVCheck();
-
-	void BadVertexCheck();
-
 	void fixUVMismatch();
 
 	bool CheckBadVertex();
@@ -207,12 +203,6 @@ public:
 	void flipEdgeUV();
 
 	void fixTriangleUV(int fi, int i);
-
-	void exportQuadDominantMesh(const char* filename);
-
-	void exportUVMesh(const char* filename);
-
-	void exportTextureMesh(const char* filename);
 
 protected:
 	bool addEdgeIndexToDualnode(int i, int f);

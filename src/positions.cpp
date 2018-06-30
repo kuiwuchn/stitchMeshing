@@ -85,6 +85,8 @@ void MultiResolutionHierarchy::smoothPositionsTri(uint32_t l, bool alignment, bo
 	);
 	mOrientationIterations++;
 	O = std::move(O_new);
+
+	//cout << "mScale, mInvScale: " << fixed << mScale << " " << fixed << mInvScale << endl;
 }
 
 void MultiResolutionHierarchy::smoothPositionsTet(uint32_t l, bool alignment, bool randomization) {

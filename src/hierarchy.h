@@ -16,6 +16,8 @@
 #include "core/HE_Polyhedron.h"
 #include "core/dual.h"
 
+#include <limits>
+
 using nanogui::Serializer;
 using namespace std;
 class BVH;
@@ -140,10 +142,15 @@ public:
     Float averageEdgeLength() const { return mAverageEdgeLength; }
 	Float scale() const { return ratio_scale; }
 	void setScale(Float scale) { 
+		typedef std::numeric_limits< double > dbl;
+		cout.precision(dbl::max_digits10);
 		ratio_scale = scale; 
 		mScale = diagonalLen * scale; 
 		mInvScale = 1.f / mScale;
 		tet_elen = tElen_ratio * ratio_scale * diagonalLen * 0.3;
+
+		//cout << "diagonalLen, ratio_scale: " << fixed << diagonalLen << " " << fixed << ratio_scale << endl;
+		//cout << "------------------set scale: mScale, mInvScale: " << fixed << mScale << " " << fixed << mInvScale << endl;
 	}
 
     ordered_lock &mutex() const { return mMutex; }
@@ -152,7 +159,7 @@ public:
 
 // stitch meshing
 	void convert2Poly();
-	void labelMesh();
+	void labelMesh(bool pFlip);
 	void alignMesh();
 	void stitchMeshing();
 	void convertLabelMesh2Rend();

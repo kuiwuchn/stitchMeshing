@@ -19,53 +19,39 @@ BSD-style license that can be found in the LICENSE.txt file.
 #include "subdivide.h"
 #include "timer.h"
 
-void batch_process(char *input, char *output,
-	uint32_t dimension, Float tlen, Float scale, int smooth_iter) {
-	//cout << endl;
-	//cout << "Running in batch mode:" << endl;
-	//cout << "   Input file             = " << input << endl;
-	//cout << "   Output file            = " << output << endl;
+void batch_process(char *input, char *output, Float scale) {
 
 	MultiResolutionHierarchy mRes;
 	Optimizer *mOptimizer;
 
+	mRes.Two_rosy_flag = true;
+
+	mOptimizer = new Optimizer(mRes);
+
 	Timer<> timer;
 	timer.beginStage("data pre-processing");
 	mRes.load(input);
-	//return;
-	//MeshStats stats = mRes.compute_mesh_stats(mRes.F(), mRes.V(0));
-	//mRes.diagonalLen *= 0.0025;
-	//if (dimension == 2 && ((stats.mMaximumEdgeLength * 4 / stats.mAverageEdgeLength > scale || stats.mMaximumEdgeLength > stats.mAverageEdgeLength * 1.5))) {
-	//	cout << "Input mesh is too coarse for the desired output edge length "
-	//		"(max input mesh edge length=" << stats.mMaximumEdgeLength
-	//		<< "), subdividing .." << endl;
-	//	VectorXu V2E, E2E;
-	//	VectorXb boundary, nonManifold;
-	//	build_dedge(mRes.F(), mRes.V(0), V2E, E2E, boundary, nonManifold);
-	//	Float left = scale * (Float)stats.mAverageEdgeLength / 4;
-	//	Float right = (Float)stats.mAverageEdgeLength * 1.5;
-	//	subdivide(mRes.F(), mRes.V(0), V2E, E2E, boundary, nonManifold, std::min(left, right));
-	//	write_surface_mesh_OBJ(mRes.V(0), mRes.F(), output);
-	//}
-	//else return;
+
+	if (scale < 0)
+	{
+		float tmpScale = mRes.scale();
+		float nearest = roundf(tmpScale * 10000) / 10000;
+		mRes.setScale(nearest);
+	}
+	else
+		mRes.setScale(scale);
 
 	mRes.build();
 
-	//char path[1024];
-	//sprintf(path, "%s%s", output, "_tet.num");
-	//write_statistics_TXT(mRes.sta, path);
-	//return;
-
-	std::cout << mRes.scale() << std::endl;
-
-	//mRes.setScale(scale);
-
 	timer.beginStage("rosy optimization");
+	
+	mOptimizer->setExtrinsic(false);
 
-	mOptimizer = new Optimizer(mRes);
-	//mOptimizer->setMaxIterations(smooth_iter);
+	mOptimizer->setAlignment(true);
+	mOptimizer->setRandomization(true);
+	mOptimizer->setHierarchy(true);
+
 	mOptimizer->setOptimizeOrientations(true);
-	mOptimizer->run();
 	mOptimizer->notify();
 	mOptimizer->wait();
 
@@ -79,6 +65,8 @@ void batch_process(char *input, char *output,
 	mOptimizer->setOptimizePositions(true);
 	mOptimizer->notify();
 	mOptimizer->wait();
+
+	mRes.detectPositionSingularitiesTri();
 
 	timer.endStage();
 	mRes.sta.timings.push_back(timer.value());
@@ -105,25 +93,18 @@ void batch_process(char *input, char *output,
 	else {
 		mRes.re_color = true;
 		mRes.splitting = true;
-		mRes.meshExtraction3D();//mRes.extractTet();
+		mRes.meshExtraction3D();
 	}
 
 	timer.endStage();
 	mRes.sta.timings.push_back(timer.value());
 
 	mRes.convert2Poly();
-	mRes.labelMesh();
+	mRes.labelMesh(false);
 	
 	mRes.alignMesh();
 
 	mRes.stitchMeshing();
 
-	//char patho[1024];
-	//sprintf(patho, "%s%s", output, "_surout.obj");
-	//write_surface_mesh_OBJ(mRes.mV_tag, mRes.F_tag, patho);
-	//sprintf(output, "%s%s", output, "tri.obj");
-
-	//sprintf(patho, "%s%s", output, "_V_flag.txt");
-	//write_Vertex_Types_TXT(mRes.V_flag, patho);
-
+	mRes.exportResult(output);
 }

@@ -150,6 +150,7 @@ protected:
 		Extrinsic,
 		Randomization,
 		Hierarchy,
+		Flip_Course_Wale,
 		Config_LayerCount
 	};
     enum Layers {

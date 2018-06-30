@@ -41,9 +41,14 @@ bool MultiResolutionHierarchy::load(const std::string &filename) {
 		mV[0].rowwise().maxCoeff()
 	);
 
+	//std::cout << mAABB.min[0] << " " << mAABB.min[1] << " " << mAABB.min[1] << std::endl;
+	//std::cout << mAABB.max[0] << " " << mAABB.max[1] << " " << mAABB.max[1] << std::endl;
+
 	ms = compute_mesh_stats(mF, mV[0]);
 	diagonalLen = 3 * (mAABB.max - mAABB.min).norm() / 100;
 	ratio_scale = ms.mAverageEdgeLength * 3.5 / diagonalLen;
+
+	//std::cout << diagonalLen << " " << ratio_scale << std::endl;
 
 	return true;
 }
@@ -378,8 +383,17 @@ void MultiResolutionHierarchy::build() {
 
 	mBVH = new BVH(&mF, &mV[0], mAABB);
 	mBVH->build();
-	mScale = diagonalLen * ratio_scale;
-	mInvScale = 1.f / mScale;
+	//mScale = diagonalLen * ratio_scale;
+	//mInvScale = 1.f / mScale;
+
+	typedef std::numeric_limits< double > dbl;
+	cout.precision(dbl::max_digits10);
+
+	//mScale = diagonalLen * ratio_scale;
+	//mInvScale = 1.f / mScale;
+
+	cout << "diagonalLen, ratio_scale: " << fixed << diagonalLen << " " << fixed << ratio_scale << endl;
+	cout << "mScale, mInvScale: " << fixed << mScale << " " << fixed << mInvScale << endl;
 
 	sta.tN = mF.cols();
 	sta.tetN = mT.cols();

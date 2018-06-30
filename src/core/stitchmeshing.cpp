@@ -46,25 +46,24 @@ void MultiResolutionHierarchy::convert2Poly()
 
 	mDual = new DualGraph(mPoly);
 
-	//mDual->BadVertexCheck();
 	std::cout << "Done\n";
 }
 
-void MultiResolutionHierarchy::labelMesh()
+void MultiResolutionHierarchy::labelMesh(bool pFlip)
 {
 	//////////////////////////////////////////////////////////////////////////
-	std::cout << "------------ cut bad quad ------------\n";
+	//std::cout << "------------ cut bad quad ------------\n";
 
-	mDual->findBadQuads();
-	std::vector<HE_Vertex> cutVerts;
-	std::vector<std::vector<int>> cutFaces;
-	mDual->cut(cutVerts, cutFaces);
+	//mDual->findBadQuads();
+	//std::vector<HE_Vertex> cutVerts;
+	//std::vector<std::vector<int>> cutFaces;
+	//mDual->cut(cutVerts, cutFaces);
 
-	delete mPoly;
-	delete mDual;
+	//delete mPoly;
+	//delete mDual;
 
-	mPoly = new HE_Polyhedron(cutVerts, cutFaces);
-	mDual = new DualGraph(mPoly);
+	//mPoly = new HE_Polyhedron(cutVerts, cutFaces);
+	//mDual = new DualGraph(mPoly);
 
 	//////////////////////////////////////////////////////////////////////////
 #if 1
@@ -84,12 +83,11 @@ void MultiResolutionHierarchy::labelMesh()
 
 	std::cout << "------------ UV minimization ------------\n";
 	mDual->gurobiSolver(filename);
-	mDual->loadGurobiResult(filename);
+	mDual->loadGurobiResult(filename, pFlip);
 	mDual->findUVMismatch();
 
 	//////////////////////////////////////////////////////////////////////////
 	std::cout << "------------ cut UV mismatch quad ------------\n";
-#if 1
 	std::vector<HE_Vertex> cut2ndVerts;
 	std::vector<std::vector<int>> cut2ndFaces;
 	std::vector<std::vector<bool>> cut2ndEdgeFlags;
@@ -108,7 +106,6 @@ void MultiResolutionHierarchy::labelMesh()
 	mDual->fitFaceEdgesOrder();
 	mDual->labelTriangleFace();
 
-#if 1
 	std::vector<HE_Vertex> flipVerts;
 	std::vector<std::vector<int>> flipFaces;
 	std::vector<std::vector<bool>> flipEdgeFlags;
@@ -120,42 +117,29 @@ void MultiResolutionHierarchy::labelMesh()
 	mPoly = new HE_Polyhedron(flipVerts, flipFaces);
 	mDual = new DualGraph(mPoly);
 	mPoly->setEdgeFlags(flipEdgeFlags);
-#endif
 
-	mDual->HVCheck();
-	mDual->BadVertexCheck();
 	mDual->findUVMismatch();
-#endif
 
 	//////////////////////////////////////////////////////////////////////////
 	std::cout << "------------ break INC/DEC ------------\n";
-#if 1
 	mDual->breakConnectIncOrDec();
 	mDual->findFaceGroups();
 	mDual->fitFaceEdgesOrder();
 	mDual->labelTriangleFace();
-	mDual->HVCheck();
-	mDual->BadVertexCheck();
-#endif
+
 	////////////////////////////////////////////////////////////////////////
 	std::cout << "------------ flip triangle UV ------------\n";
-#if 1
 	mDual->flipTriangleUV();
-	mDual->HVCheck();
-#endif
+
 	////////////////////////////////////////////////////////////////////////
 	std::cout << "------------ flip Edge UV ------------\n";
-#if 1
 	mDual->flipEdgeUV();
-	mDual->HVCheck();
 	mDual->findFaceGroups();
 	mDual->fitFaceEdgesOrder();
 	mDual->labelTriangleFace();
-	mDual->BadVertexCheck();
-#endif
+
 	////////////////////////////////////////////////////////////////////////
 	std::cout << "------------ merge triangles ------------\n";
-#if 1
 	std::vector<HE_Vertex> mergeVerts_2;
 	std::vector<std::vector<int>> mergeFaces_2;
 	std::vector<std::vector<bool>> mergeEdgeFlags_2;
@@ -172,15 +156,9 @@ void MultiResolutionHierarchy::labelMesh()
 	mDual->fitFaceEdgesOrder();
 	mDual->labelTriangleFace();
 
-	mDual->HVCheck();
-	mDual->BadVertexCheck();
-#endif
-
 	////////////////////////////////////////////////////////////////////////
 	std::cout << "------------ break INC/DEC again ------------\n";
-#if 1	
 	mDual->breakConnectIncOrDec();
-#endif
 	std::cout << "------------------------------------------ labeling\n";
 }
 
@@ -189,8 +167,6 @@ void MultiResolutionHierarchy::alignMesh()
 	mDual->findFaceGroups();
 	mDual->fitFaceEdgesOrder();
 	mDual->labelTriangleFace();
-	mDual->HVCheck();
-	mDual->BadVertexCheck();
 
 	////////////////////////////////////////////////////////////////////////
 	std::cout << "------------ wale mismatch minimization ------------\n";
@@ -199,8 +175,6 @@ void MultiResolutionHierarchy::alignMesh()
 	mDual->findLoops();
 	mDual->findUVMismatch();
 	mDual->findWaleMismatch();
-	mDual->HVCheck();
-	mDual->BadVertexCheck();
 
 	std::cout << "------------------------------------------ alignment\n";
 }
@@ -209,7 +183,6 @@ void MultiResolutionHierarchy::stitchMeshing()
 {
 	//////////////////////////////////////////////////////////////////////////
 	std::cout << "------------ subdivision ------------\n";
-#if 1
 	std::vector<HE_Vertex> subVerts;
 	std::vector<std::vector<int>> subFaces;
 
@@ -222,13 +195,10 @@ void MultiResolutionHierarchy::stitchMeshing()
 	mSubDual->findWaleMismatch();
 	mSubDual->reorderSubdivisionGroupFaceIdx(mDual);
 	mSubDual->findLoops();
-#endif
 
 	//////////////////////////////////////////////////////////////////////////
 	std::cout << "------------ merge triangles to INC/DEC ------------\n";
-#if 1
 	removeQuadDecInc();
-#endif
 }
 
 cyPoint3f colorConverter(int hexValue)
@@ -284,18 +254,14 @@ void MultiResolutionHierarchy::convertLabelMesh2Rend()
 			mV_LbMesh_rend(1, vtCount + 3) = f->edge()->next()->next()->next()->src()->position().y;
 			mV_LbMesh_rend(2, vtCount + 3) = f->edge()->next()->next()->next()->src()->position().z;
 
-			mT_LbMesh_rend(0, vtCount + 0) = 0;
-			mT_LbMesh_rend(1, vtCount + 0) = 0;
-			mT_LbMesh_rend(0, vtCount + 1) = 0.5;
+			mT_LbMesh_rend(0, vtCount + 1) = 0;
 			mT_LbMesh_rend(1, vtCount + 1) = 0;
 			mT_LbMesh_rend(0, vtCount + 2) = 0.5;
-			mT_LbMesh_rend(1, vtCount + 2) = 1;
-			mT_LbMesh_rend(0, vtCount + 3) = 0;
+			mT_LbMesh_rend(1, vtCount + 2) = 0;
+			mT_LbMesh_rend(0, vtCount + 3) = 0.5;
 			mT_LbMesh_rend(1, vtCount + 3) = 1;
-			//exportFile << "vt " << 0 << " " << 0 << std::endl;
-			//exportFile << "vt " << 0.5 << " " << 0 << std::endl;
-			//exportFile << "vt " << 0.5 << " " << 1 << std::endl;
-			//exportFile << "vt " << 0 << " " << 1 << std::endl;
+			mT_LbMesh_rend(0, vtCount + 0) = 0;
+			mT_LbMesh_rend(1, vtCount + 0) = 1;
 			vtCount += 4;
 		}
 		else if (f->NumHalfEdge() == 3)
@@ -327,21 +293,12 @@ void MultiResolutionHierarchy::convertLabelMesh2Rend()
 				mV_LbMesh_rend(1, vtCount + 2) = f->edge()->next()->next()->src()->position().y;
 				mV_LbMesh_rend(2, vtCount + 2) = f->edge()->next()->next()->src()->position().z;
 
-				mT_LbMesh_rend(0, vtCount + 1) = 1;
-				mT_LbMesh_rend(1, vtCount + 1) = 0;
-				mT_LbMesh_rend(0, vtCount + 2) = 0.5;
-				mT_LbMesh_rend(1, vtCount + 2) = 0;
-				mT_LbMesh_rend(0, vtCount + 0) = 0.5;
-				mT_LbMesh_rend(1, vtCount + 0) = 1;
-				//mT_LbMesh_rend(0, vtCount + 0) = 0.5;
-				//mT_LbMesh_rend(1, vtCount + 0) = 1;
-				//mT_LbMesh_rend(0, vtCount + 1) = 1;
-				//mT_LbMesh_rend(1, vtCount + 1) = 1;
-				//mT_LbMesh_rend(0, vtCount + 2) = 1;
-				//mT_LbMesh_rend(1, vtCount + 2) = 0;
-				//exportFile << "vt " << 0.5 << " " << 0 << std::endl;
-				//exportFile << "vt " << 1 << " " << 0 << std::endl;
-				//exportFile << "vt " << 1 << " " << 1 << std::endl;
+				mT_LbMesh_rend(0, vtCount + 1) = 0.5;
+				mT_LbMesh_rend(1, vtCount + 1) = 1;
+				mT_LbMesh_rend(0, vtCount + 2) = 1;
+				mT_LbMesh_rend(1, vtCount + 2) = 1;
+				mT_LbMesh_rend(0, vtCount + 0) = 1;
+				mT_LbMesh_rend(1, vtCount + 0) = 0;
 			}
 			else if (hCount == 1 && vCount == 2)
 			{
@@ -360,21 +317,12 @@ void MultiResolutionHierarchy::convertLabelMesh2Rend()
 				mV_LbMesh_rend(1, vtCount + 2) = f->edge()->next()->next()->src()->position().y;
 				mV_LbMesh_rend(2, vtCount + 2) = f->edge()->next()->next()->src()->position().z;
 
-				mT_LbMesh_rend(0, vtCount + 1) = 0.5;
-				mT_LbMesh_rend(1, vtCount + 1) = 1;
-				mT_LbMesh_rend(0, vtCount + 2) = 1;
-				mT_LbMesh_rend(1, vtCount + 2) = 1;
-				mT_LbMesh_rend(0, vtCount + 0) = 1;
-				mT_LbMesh_rend(1, vtCount + 0) = 0;
-				//mT_LbMesh_rend(0, vtCount + 0) = 1;
-				//mT_LbMesh_rend(1, vtCount + 0) = 0;
-				//mT_LbMesh_rend(0, vtCount + 1) = 0.5;
-				//mT_LbMesh_rend(1, vtCount + 1) = 0;
-				//mT_LbMesh_rend(0, vtCount + 2) = 0.5;
-				//mT_LbMesh_rend(1, vtCount + 2) = 1;
-				//exportFile << "vt " << 1 << " " << 1 << std::endl;
-				//exportFile << "vt " << 0.5 << " " << 1 << std::endl;
-				//exportFile << "vt " << 0.5 << " " << 0 << std::endl;
+				mT_LbMesh_rend(0, vtCount + 1) = 1;
+				mT_LbMesh_rend(1, vtCount + 1) = 0;
+				mT_LbMesh_rend(0, vtCount + 2) = 0.5;
+				mT_LbMesh_rend(1, vtCount + 2) = 0;
+				mT_LbMesh_rend(0, vtCount + 0) = 0.5;
+				mT_LbMesh_rend(1, vtCount + 0) = 1;
 			}
 			else std::cout << "ERROR: export uv mesh\n";
 			vtCount += 3;
